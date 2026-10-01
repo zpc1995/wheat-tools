@@ -1,7 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * Public base path for the built assets.
+ *
+ * GitHub Pages serves project sites from a sub-path
+ * (`https://<user>.github.io/<repo>/`), so the default root base would make
+ * every asset 404. The deploy workflow passes the real base in via `VITE_BASE`;
+ * locally it stays `/` so `dev` and `preview` keep working at the root.
+ * Routing is hash-based, so no server-side rewrite rules are needed.
+ */
+const base = process.env.VITE_BASE ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [react()],
   server: {
     // Bind every interface so the dev server is reachable from other devices

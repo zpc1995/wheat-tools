@@ -5,6 +5,10 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    // `vite.config.ts` reads `process.env.VITE_BASE`, so build-time Node
+    // globals are needed here (the app itself does not use Node APIs).
+    "types": ["node"],
+
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,

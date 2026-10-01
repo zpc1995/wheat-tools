@@ -110,5 +110,34 @@ pnpm build && node scripts/verify-ui.mjs
 
 ## 部署
 
-`pnpm build` 产出纯静态 `dist/`，可直接托管在任意静态服务器（GitHub Pages、Nginx、
-对象存储等）。由于使用 hash 路由，无需配置服务端回退规则。
+`pnpm build` 产出纯静态 `dist/`，可直接托管在任意静态服务器（Nginx、对象存储、
+GitHub Pages 等）。由于使用 hash 路由，**无需任何服务端回退规则**。
+
+### GitHub Pages（已配置自动部署）
+
+仓库自带 [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml)：
+推送到 `main` 后自动构建并发布，也可在 Actions 页面手动触发（`workflow_dispatch`）。
+
+**首次启用只需在仓库里设置一次**：Settings → Pages → Build and deployment →
+Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-pages` 分支。）
+
+启用后站点地址为 `https://<用户名>.github.io/<仓库名>/`。
+
+#### 为什么需要 `VITE_BASE`
+
+Pages 的项目站点是从**子路径**提供服务的，而 Vite 默认按根路径 `/` 生成资源引用，
+直接部署会白屏（JS/CSS 全部 404）。所以 [vite.config.ts](vite.config.ts) 支持用
+`VITE_BASE` 覆盖 base：
+
+```bash
+pnpm build                          # base = /，用于本地 dev / preview
+VITE_BASE=/wheat-tools/ pnpm build  # base = /wheat-tools/，用于 Pages
+```
+
+工作流已自动传入该变量，你不需要手动设置。若以后绑定了自定义域名（从根路径提供服务），
+把工作流里的 `VITE_BASE` 改成 `/` 即可。
+
+### 部署到其它平台
+
+Vercel / Netlify / Cloudflare Pages 等平台的默认设置即可直接使用：
+构建命令 `pnpm build`，输出目录 `dist`。这类平台从根路径提供服务，无需设置 `VITE_BASE`。
