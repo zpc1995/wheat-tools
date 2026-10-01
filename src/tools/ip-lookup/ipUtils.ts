@@ -208,109 +208,104 @@ function parseTrace(text: string): string | null {
 
 interface AddressSource {
   label: string;
-  family: IpFamily;
   fetch: (signal: AbortSignal) => Promise<string | null>;
 }
 
 /**
- * Address sources, tried in order.
+ * Single-stack sources for each family.
  *
- * More than one on purpose: a previous revision depended solely on
- * `cloudflare.com`, so any network that cannot reach Cloudflare lost the tool
- * entirely. Every entry below was verified to send
- * `Access-Control-Allow-Origin: *`.
+ * `ident.me` publishes A-only and AAAA-only hostnames, so which one answers
+ * tells us directly whether that family works for this visitor — no inference
+ * needed. Both were verified to send `Access-Control-Allow-Origin: *`.
  *
- * `ident.me` is listed first because it is a plain dual-stack JSON endpoint:
- * which of its hostnames answers tells us the visitor's own protocol without
- * any inference. The dedicated single-stack hosts (`ipv4.` / `ipv6.`) only
- * resolve on their respective stack, which makes them a direct connectivity
- * test as well.
+ * Network failure is the *expected* outcome for a family the visitor lacks, so
+ * a null result here is normal, not an error.
  */
-const ADDRESS_SOURCES: AddressSource[] = [
-  {
-    label: 'ident.me',
-    family: 'IPv4',
-    fetch: async (signal) => {
-      const res = await fetch('https://ipv4.ident.me/.json', {
-        signal,
-        cache: 'no-store',
-      });
-      if (!res.ok) return null;
-      const body = (await res.json()) as { address?: unknown };
-      return typeof body.address === 'string' ? body.address : null;
+const SOURCES: Record<IpFamily, AddressSource[]> = {
+  IPv4: [
+    {
+      label: 'ident.me',
+      fetch: async (signal) => {
+        const res = await fetch('https://ipv4.ident.me/.json', {
+          signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { address?: unknown };
+        return typeof body.address === 'string' ? body.address : null;
+      },
     },
-  },
-  {
-    label: 'cloudflare.com',
-    family: 'IPv4',
-    fetch: async (signal) => {
-      const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace', {
-        signal,
-        cache: 'no-store',
-      });
-      if (!res.ok) return null;
-      return parseTrace(await res.text());
+    {
+      label: 'cloudflare.com',
+      fetch: async (signal) => {
+        const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace', {
+          signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        return parseTrace(await res.text());
+      },
     },
-  },
-  {
-    label: 'ipwho.is',
-    family: 'IPv4',
-    fetch: async (signal) => {
-      const res = await fetch('https://ipwho.is/?fields=ip', {
-        signal,
-        cache: 'no-store',
-      });
-      if (!res.ok) return null;
-      const body = (await res.json()) as { ip?: unknown };
-      return typeof body.ip === 'string' ? body.ip : null;
+    {
+      label: 'ipwho.is',
+      fetch: async (signal) => {
+        const res = await fetch('https://ipwho.is/?fields=ip', {
+          signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { ip?: unknown };
+        return typeof body.ip === 'string' ? body.ip : null;
+      },
     },
-  },
-];
-
-const IPV6_ADDRESS_SOURCE: AddressSource = {
-  label: 'ipv6.ident.me',
-  family: 'IPv6',
-  fetch: async (signal) => {
-    const res = await fetch('https://ipv6.ident.me/.json', {
-      signal,
-      cache: 'no-store',
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { address?: unknown };
-    return typeof body.address === 'string' ? body.address : null;
-  },
+  ],
+  IPv6: [
+    {
+      label: 'ident.me',
+      fetch: async (signal) => {
+        const res = await fetch('https://ipv6.ident.me/.json', {
+          signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { address?: unknown };
+        return typeof body.address === 'string' ? body.address : null;
+      },
+    },
+    {
+      // Dual-stack fallback: only useful if the browser happens to connect
+      // over IPv6, but it costs nothing to try when ident.me is unreachable.
+      label: 'ipwho.is',
+      fetch: async (signal) => {
+        const res = await fetch('https://ipwho.is/?fields=ip', {
+          signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { ip?: unknown };
+        return typeof body.ip === 'string' ? body.ip : null;
+      },
+    },
+  ],
 };
 
-/**
- * Tries each source until one yields a well-formed address of the expected
- * family.
- *
- * When `want` is 'IPv6' the IPv6-only host is consulted first: it is the only
- * way to learn an IPv6 address on a dual-stack machine, since a dual-stack
- * hostname may legitimately answer over IPv4.
- */
-async function resolveOwnAddress(
-  want: IpFamily,
+/** Tries each source for one family until a well-formed address comes back. */
+async function resolveFamily(
+  family: IpFamily,
   timeoutMs: number,
 ): Promise<OwnAddress | null> {
-  const sources =
-    want === 'IPv6'
-      ? [IPV6_ADDRESS_SOURCE, ...ADDRESS_SOURCES]
-      : ADDRESS_SOURCES;
-
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    for (const source of sources) {
+    for (const source of SOURCES[family]) {
       try {
         const raw = await source.fetch(controller.signal);
         if (!raw) continue;
-        const family = familyOf(raw);
-        if (!family) continue;
+        if (familyOf(raw) !== family) continue;
         return { ip: raw, family, source: source.label };
       } catch {
-        // Try the next source; total failure is handled by the caller.
+        // Try the next source.
       }
     }
     return null;
@@ -319,46 +314,44 @@ async function resolveOwnAddress(
   }
 }
 
-/**
- * Fetches the caller's own address: IPv6 when the machine has it, else IPv4.
- *
- * IPv6 is attempted first so a dual-stack visitor sees their IPv6 address
- * rather than whichever stack a dual-stack hostname happened to pick.
- */
-export async function lookupOwnAddress(
-  timeoutMs = 9000,
-): Promise<OwnAddress> {
-  const ipv6 = await resolveOwnAddress('IPv6', timeoutMs);
-  if (ipv6) return ipv6;
-
-  const ipv4 = await resolveOwnAddress('IPv4', timeoutMs);
-  if (ipv4) return ipv4;
-
-  throw new IpLookupError(
-    '所有地址探测服务都不可用（ident.me / cloudflare.com / ipwho.is 均失败），可能是网络受限或这些域名被拦截',
-  );
+export interface OwnAddresses {
+  ipv4: OwnAddress | null;
+  ipv6: OwnAddress | null;
 }
 
-export type Ipv6Status =
-  | { state: 'checking' }
-  | { state: 'native'; ip: string }
-  | { state: 'reachable'; address: string }
-  | { state: 'unavailable' };
-
 /**
- * Checks IPv6 reachability for a visitor who arrived over IPv4.
+ * Resolves both families, concurrently.
  *
- * `ipv6.ident.me` publishes only an AAAA record, so a successful request proves
- * IPv6 works end to end and yields the visitor's IPv6 address. A failure means
- * IPv6 is unavailable *or* the host sent no CORS header; both are reported as
- * `unavailable` rather than claiming the visitor has no IPv6.
+ * Queried in parallel rather than sequentially so a machine without IPv6 does
+ * not pay the IPv6 timeout before its IPv4 address appears. Each family is
+ * independent: `null` simply means that stack is not usable from here.
  */
-export async function probeIpv6(timeoutMs = 7000): Promise<Ipv6Status> {
-  const found = await resolveOwnAddress('IPv6', timeoutMs);
-  if (found && found.family === 'IPv6') {
-    return { state: 'reachable', address: found.ip };
+export async function lookupBothFamilies(
+  timeoutMs = 9000,
+): Promise<OwnAddresses> {
+  const [ipv4, ipv6] = await Promise.all([
+    resolveFamily('IPv4', timeoutMs),
+    resolveFamily('IPv6', timeoutMs),
+  ]);
+  return { ipv4, ipv6 };
+}
+
+/** Looks up geography/ASN for several addresses concurrently. */
+export async function lookupMany(
+  addresses: Array<{ family: IpFamily; ip: string }>,
+): Promise<Partial<Record<IpFamily, IpDetails>>> {
+  const results = await Promise.allSettled(
+    addresses.map(async (item) => [item.family, await lookupIp(item.ip)] as const),
+  );
+
+  const out: Partial<Record<IpFamily, IpDetails>> = {};
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const [family, details] = result.value;
+      out[family] = details;
+    }
   }
-  return { state: 'unavailable' };
+  return out;
 }
 
 /** Builds an OpenStreetMap link for the reported coordinates. */
