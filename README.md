@@ -53,6 +53,39 @@ src/tools/<id>/
 107 KB 的解析器。卡片与侧边栏在鼠标悬停/键盘聚焦时就会预取对应 chunk，
 所以正常点击时通常已经没有加载等待。
 
+### 发布 Releases
+
+推送 `v*` 形式的 tag 会自动创建一个 GitHub Release（工作流：`.github/workflows/release.yml`）。
+
+Release 里除了 GitHub 自动附带的源码压缩包，还有一份**构建好的静态站点**：
+
+| 附件 | 说明 |
+| --- | --- |
+| `wheat-tools-vX.Y.Z.zip` | 解压即可部署，**不需要 Node 或 pnpm**。包内含 `部署说明.txt` |
+| `Source code`（GitHub 自动） | 源代码，需要自行 `pnpm install && pnpm build` |
+
+之所以把构建产物也放上去：自建部署的意义就是摆脱对 GitHub Pages 可达性的依赖，
+所以「下载一个压缩包、解压到网站根目录」这条路要能走得通，而不是先装一套 Node 工具链。
+
+发布流程（不是自动的，需要人为决定版本号）：
+
+```bash
+# 1. 改版本号并提交
+node -p "require('./package.json').version"     # 确认当前版本
+#    编辑 package.json 的 version 字段，然后：
+git add package.json && git commit -m "chore: 发布 vX.Y.Z"
+
+# 2. 推 tag，剩下交给 Actions
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+流水线会在发布前依次执行：类型检查、逻辑检查套件（1600+ 项断言）、构建、打包。
+**任何一步失败都不会产生 Release**，所以 tag 不会被用来发布一个连自己测试都过不了的版本。
+另外会校验 tag 与 `package.json` 的版本号一致，不一致直接失败并提示怎么改。
+
+浏览器相关检查（工具冒烟、可访问性）不在流水线里跑：runner 上没有 Chromium，
+而**跑不了的检查不能被显示成通过**。它们在本地用 `pnpm verify:all` 执行。
+
 ### 工具内搜索与可访问性
 
 条目多的工具带搜索框：正则速查表 49 条（另有 10 条陷阱）、单位换算 93 个单位（10 个类别）、颜色名 28 个。
@@ -254,6 +287,13 @@ export function MyTool() {
 | `node scripts/check-crontab.mjs` | crontab：环境变量作用域、`%` 截断、cron.d 用户字段、`@reboot` 语义、方言歧义 |
 | `node scripts/check-filter.mjs` | 列表过滤：大小写、多词「与」、按字段匹配不跨字段误命中 |
 | `node scripts/check-a11y.mjs` | **可访问性审计**：用浏览器 AX 树判断可访问名，并真实按键走一遍 Tab 顺序 |
+
+一次性运行全部逻辑检查（CI 与本地通用）：
+
+```bash
+pnpm verify       # 逻辑检查（32 项，1600+ 断言）
+pnpm verify:all   # 连同需要 Chromium 的浏览器检查
+```
 | `node scripts/check-oncalendar.mjs` | OnCalendar 反解：**与 systemd-analyze 的实际触发时刻逐次比对**（见下） |
 | `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
 | `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |

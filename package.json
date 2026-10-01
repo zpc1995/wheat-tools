@@ -9,7 +9,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "verify": "node scripts/verify.mjs",
+    "verify:all": "node scripts/verify.mjs --all"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.54.0",

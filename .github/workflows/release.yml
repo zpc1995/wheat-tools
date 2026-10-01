@@ -1,0 +1,152 @@
+name: Release
+
+# Publishes a GitHub Release when a version tag is pushed.
+#
+# Why automate this rather than creating releases by hand: the release is a
+# *deliverable*, not just a label. Alongside the source archives GitHub always
+# provides, this attaches a ready-to-serve build of the site — so the project can
+# be deployed by downloading one zip and unpacking it, with no Node or pnpm on the
+# target machine. That matters here because the self-hosted option exists
+# precisely to avoid depending on GitHub Pages being reachable.
+#
+# The release only happens after the logic check suite passes, so a tag cannot
+# publish a build that fails its own tests.
+on:
+  push:
+    tags:
+      - 'v*'
+  # Re-run a release for an existing tag from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（例如 v0.2.0）'
+        required: true
+        type: string
+
+# `contents: write` is required to create the release and upload its assets.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so the generated changelog can compare against the
+          # previous tag; a shallow clone has no tags to compare with.
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            v*) ;;
+            *) echo "tag 必须以 v 开头（收到：$TAG）"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "发布 $TAG"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches package.json
+        # A release whose version disagrees with the manifest is confusing to
+        # anyone reading either one, so this fails rather than warns.
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "tag $TAG 与 package.json 的版本 $VERSION 不一致。"
+            echo "请先把 package.json 的 version 改为 ${TAG#v}，或改用 v$VERSION 打 tag。"
+            exit 1
+          fi
+          echo "版本一致：$TAG"
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run the logic check suite
+        # The browser-driven checks are excluded: this runner has no Chromium,
+        # and a check that cannot run must not be reported as passing. They run
+        # locally via `pnpm verify:all`.
+        run: pnpm verify
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package the built site
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # The deployment notes live in the repository rather than as a heredoc
+          # here: a heredoc body would have to sit flush against column 0, which
+          # is not valid inside a YAML block scalar (the parser rejects it), and
+          # as a file it is reviewable in a diff.
+          cp deploy/dist-readme.txt dist/部署说明.txt
+
+          # Zip from inside dist so index.html sits at the archive root and the
+          # result can be unpacked straight into a web root.
+          ( cd dist && zip -q -r "../wheat-tools-${TAG}.zip" . )
+          echo "已打包 wheat-tools-${TAG}.zip（$(du -h "wheat-tools-${TAG}.zip" | cut -f1)）"
+
+      - name: Generate release notes
+        # The auto-generated changelog and the hand-written deploy section are
+        # composed explicitly: `gh release create` does not accept
+        # `--generate-notes` together with `--notes-file`, and silently picking
+        # one of them would be worse than combining them here.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="$TAG" --jq .body > generated-notes.md
+
+          {
+            cat generated-notes.md
+            sed "s/<tag>/${TAG}/g" deploy/release-notes-extra.md
+          } > release-notes.md
+
+          echo "说明已生成（$(wc -l < release-notes.md) 行）"
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          ZIP="wheat-tools-${TAG}.zip"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Re-running for an existing tag: replace the asset and the notes
+            # rather than failing, so a fixed build can be republished.
+            gh release upload "$TAG" "$ZIP" --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
+            echo "已更新 $TAG 的附件与说明"
+          else
+            gh release create "$TAG" "$ZIP" \
+              --title "$TAG" \
+              --notes-file release-notes.md
+            echo "已创建 $TAG"
+          fi
+          gh release view "$TAG" --json url,tagName --jq '"已发布 " + .tagName + "：" + .url'
