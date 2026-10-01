@@ -173,6 +173,14 @@ try {
   await call('Page.navigate', { url: `file://${pagePath}` }).catch(() => undefined);
   await sleep(3200);
 
+  // Pin the interface language so the report is deterministic regardless of the
+  // runner's browser language. This has to happen *after* the first navigation:
+  // localStorage is per-origin, so writing it while still on about:blank would
+  // target the wrong origin. The reload then picks it up.
+  await evaluate(`try { localStorage.setItem('wheat-tools:locale', 'zh-CN'); } catch {} true`);
+  await call('Page.reload', {}).catch(() => undefined);
+  await sleep(1800);
+
   const box = await toggleCentre();
   check('切换按钮存在且可见', box !== null && box.w > 0, true);
   check('按钮可被真实点击命中（无元素遮挡）', await evaluate(`(() => {

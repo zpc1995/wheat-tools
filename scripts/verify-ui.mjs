@@ -275,10 +275,10 @@ async function openTool(name, selector) {
   return waitFor(selector);
 }
 
-/** Returns to the launcher via the brand link in the header. */
+/** Returns to the launcher via the sidebar home entry (language-independent). */
 async function goHome() {
   await evaluate(`(() => {
-    const link = document.querySelector('.wt-header__brand');
+    const link = document.querySelector('.wt-sidebar a[href*="#/"]');
     link?.click(); return !!link;
   })()`);
   return waitFor('.wt-tool-card');

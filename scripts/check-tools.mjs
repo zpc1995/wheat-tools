@@ -167,7 +167,6 @@ function call(method, params = {}) {
 
 await call('Page.enable');
 await call('Runtime.enable');
-
 async function evaluate(expression) {
   const result = await call('Runtime.evaluate', {
     expression,
@@ -186,6 +185,14 @@ try {
   await call('Page.navigate', { url: `file://${pagePath}` }).catch(() => {});
   await sleep(1800);
 
+  // Pin the interface language so the report is deterministic regardless of the
+  // runner's browser language. This must happen *after* the first navigation:
+  // localStorage is per-origin, so writing it while still on about:blank would
+  // target the wrong origin. The reload then picks it up.
+  await evaluate(`try { localStorage.setItem('wheat-tools:locale', 'zh-CN'); } catch {} true`);
+  await call('Page.reload', {}).catch(() => {});
+  await sleep(2000);
+
   for (let i = 0; i < 40; i += 1) {
     if (await evaluate(`!!document.querySelector('.wt-tool-card')`).catch(() => false)) break;
     await sleep(300);
@@ -199,9 +206,14 @@ try {
   for (let index = 0; index < cards.length; index += 1) {
     const before = consoleErrors.length;
 
-    // Return to the launcher through the sidebar's home link.
+    // Return to the launcher through the sidebar's home entry.
+    //
+    // This used to click the header wordmark, which stopped being a link when
+    // the brand was deliberately made non-interactive. The sidebar entry is
+    // matched by href rather than by label so the check is independent of the
+    // interface language.
     await evaluate(`(() => {
-      const home = document.querySelector('.wt-header__brand');
+      const home = document.querySelector('.wt-sidebar a[href*="#/"]');
       if (home) home.click();
       return true;
     })()`);
