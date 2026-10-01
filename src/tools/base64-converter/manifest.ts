@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: DocumentTextRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Base64 encoder",
+      description:
+        "Convert between text and Base64 with correct handling of CJK and emoji. Supports the URL-safe alphabet and unpadded input, previews decoded images, pretty-prints JSON and encodes files.",
+      tags: ["Base64","encode","decode"],
+    },
+  },
 };

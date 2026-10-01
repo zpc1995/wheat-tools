@@ -113,20 +113,25 @@ body {
 }
 
 
-/* Narrow screens: the rail becomes an overlay drawer. */
-.wt-nav-toggle {
-  display: none;
-}
-
+/* The rail toggle is available at every width; only its effect differs. Its
+   `display` is intentionally not set here — Fluent's runtime-injected Button
+   styles are appended after this file and win on equal specificity, so a
+   `display: none` here silently did nothing. Visibility is controlled by not
+   rendering it at all, or by the rules below, never by fighting that ordering. */
 .wt-scrim {
   display: none;
 }
 
-@media (max-width: 1000px) {
-  .wt-nav-toggle {
-    display: inline-flex;
+/* Wide screens: the toggle collapses the rail entirely, giving the content the
+   full width. Scoped above the breakpoint so it cannot override the overlay
+   behaviour below it. */
+@media (min-width: 1001px) {
+  .wt-body--rail-hidden .wt-sidebar {
+    display: none;
   }
+}
 
+@media (max-width: 1000px) {
   .wt-sidebar {
     position: fixed;
     top: var(--wt-header-height);

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'media',
   icon: ColorRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Colour converter",
+      description:
+        "Convert between HEX, RGB, HSL, HSV and CMYK with a transparency preview, WCAG contrast ratings, a generated scale and built-in colour names.",
+      tags: ["colour","HEX","contrast"],
+    },
+  },
 };

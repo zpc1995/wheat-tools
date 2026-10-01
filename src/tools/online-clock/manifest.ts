@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'time',
   icon: ClockRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Online clock",
+      description:
+        "A large clock, world time conversion that handles daylight saving and half-hour offsets, and a countdown that survives a page refresh.",
+      tags: ["clock","time zone","countdown"],
+    },
+  },
 };

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'network',
   icon: GlobeRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "HTTP request tester",
+      description:
+        "Send HTTP requests and inspect responses. Limited by CORS: failures list the possible causes and how to confirm them instead of guessing, and a matching curl command is generated.",
+      tags: ["HTTP","API","request"],
+    },
+  },
 };

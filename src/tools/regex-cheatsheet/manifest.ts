@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: BookOpenRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Regex cheat sheet",
+      description:
+        "Character classes, anchors, quantifiers, groups, flags and common patterns. Every entry is compiled and matched by the test suite, and JavaScript-specific pitfalls are listed.",
+      tags: ["regex","reference","cheat sheet"],
+    },
+  },
 };

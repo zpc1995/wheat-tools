@@ -12,9 +12,38 @@ import { useToolId } from './useToolId';
 import { LauncherSidebar } from './LauncherSidebar';
 
 interface SidebarContextValue {
+  /** True when the narrow-screen overlay drawer is showing. */
   open: boolean;
+  /**
+   * True when the sidebar rail is visible on a wide screen.
+   *
+   * Kept separate from `open` because the two presentations behave differently:
+   * on a wide screen the rail takes layout width and is hidden entirely, while
+   * on a narrow screen it is an overlay that slides in. Deriving both from one
+   * flag made the header button appear to do nothing on desktop — which is
+   * exactly the bug users reported.
+   */
+  railVisible: boolean;
+  /** True below the drawer breakpoint. */
+  narrow: boolean;
   toggle: () => void;
   close: () => void;
+}
+
+/** Matches the CSS breakpoint where the rail becomes an overlay. */
+const NARROW_QUERY = '(max-width: 1000px)';
+
+const RAIL_KEY = 'wheat-tools:rail-visible:v1';
+
+function readRailVisible(): boolean {
+  try {
+    const raw = window.localStorage.getItem(RAIL_KEY);
+    // Default to visible: hiding the navigation on first visit would be a
+    // strange way to greet someone.
+    return raw === null ? true : raw === 'true';
+  } catch {
+    return true;
+  }
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
@@ -49,6 +78,28 @@ export function AppLayout() {
   const location = useLocation();
   const toolId = useToolId();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [railVisible, setRailVisible] = useState(readRailVisible);
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
+  );
+
+  // Track the breakpoint in JS as well as in CSS: the header button needs to
+  // know which of the two presentations it is controlling.
+  useEffect(() => {
+    const query = window.matchMedia(NARROW_QUERY);
+    const apply = () => setNarrow(query.matches);
+    apply();
+    query.addEventListener('change', apply);
+    return () => query.removeEventListener('change', apply);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, String(railVisible));
+    } catch {
+      // Best effort; the sidebar still works without persistence.
+    }
+  }, [railVisible]);
 
   // Close the mobile drawer on navigation, otherwise it lingers over the tool
   // the user just opened.
@@ -63,11 +114,20 @@ export function AppLayout() {
   }, [location.pathname]);
 
   const close = useCallback(() => setDrawerOpen(false), []);
-  const toggle = useCallback(() => setDrawerOpen((open) => !open), []);
+
+  const toggle = useCallback(() => {
+    // One button, two meanings — decided by the current breakpoint so that it
+    // always does something visible.
+    if (window.matchMedia(NARROW_QUERY).matches) {
+      setDrawerOpen((open) => !open);
+    } else {
+      setRailVisible((visible) => !visible);
+    }
+  }, []);
 
   const sidebar = useMemo(
-    () => ({ open: drawerOpen, toggle, close }),
-    [drawerOpen, toggle, close],
+    () => ({ open: drawerOpen, railVisible, narrow, toggle, close }),
+    [drawerOpen, railVisible, narrow, toggle, close],
   );
 
   const openTool = useCallback(
@@ -88,7 +148,7 @@ export function AppLayout() {
       <div className="wt-app">
         <AppHeader />
 
-        <div className="wt-body">
+        <div className={`wt-body ${railVisible ? '' : 'wt-body--rail-hidden'}`}>
           <aside
             className={`wt-sidebar ${drawerOpen ? 'wt-sidebar--open' : ''}`}
             aria-label="工具导航栏"

@@ -1,14 +1,21 @@
-import { Button, Text, Tooltip, makeStyles } from '@fluentui/react-components';
+import {
+  Button,
+  Dropdown,
+  Option,
+  Text,
+  Tooltip,
+  makeStyles,
+} from '@fluentui/react-components';
 import {
   Lightbulb20Regular,
   Navigation20Regular,
   WeatherMoon20Regular,
   WeatherSunny20Regular,
 } from '@fluentui/react-icons';
-import { Link } from 'react-router-dom';
 import { useAppTheme } from './theme';
 import { BrandMark } from './BrandMark';
 import { useSidebar } from './AppLayout';
+import { LOCALES, useI18n, type Locale } from '../i18n';
 
 const useStyles = makeStyles({
   title: {
@@ -17,42 +24,65 @@ const useStyles = makeStyles({
   subtitle: {
     color: 'var(--colorNeutralForeground3)',
   },
+  language: {
+    minWidth: '118px',
+  },
 });
 
 export function AppHeader() {
   const styles = useStyles();
   const { mode, toggleMode } = useAppTheme();
-  const { open, toggle } = useSidebar();
+  const { open, railVisible, narrow, toggle } = useSidebar();
+  const { t, locale, setLocale } = useI18n();
 
   return (
     <header className="wt-header">
-      {/* Only shown on narrow screens, where the sidebar is a drawer. */}
-      <Tooltip content="展开/收起导航" relationship="label" withArrow>
+      {/* Works at every width, but means something different at each: on a wide
+          screen it collapses the rail, below the breakpoint it opens the overlay
+          drawer. Previously it was hidden above the breakpoint by a CSS rule that
+          Fluent's runtime-injected styles overrode, so it stayed visible and
+          clicking it genuinely did nothing. */}
+      <Tooltip
+        content={
+          narrow
+            ? open
+              ? t('header.collapseNav')
+              : t('header.expandNav')
+            : railVisible
+              ? t('header.collapseSidebar')
+              : t('header.expandSidebar')
+        }
+        relationship="label"
+        withArrow
+      >
         <Button
           className="wt-nav-toggle"
           appearance="subtle"
           icon={<Navigation20Regular />}
           onClick={toggle}
-          aria-expanded={open}
-          aria-label="展开或收起导航栏"
+          aria-expanded={narrow ? open : railVisible}
+          aria-label={t('header.toggleSidebar')}
         />
       </Tooltip>
 
-      <Link className="wt-header__brand" to="/" aria-label="返回工具箱首页">
+      {/* Deliberately not a link: the sidebar already has a dedicated
+          「工具箱首页」 entry, and making the wordmark clickable as well turned
+          the headings into an unexpected navigation target. */}
+      <div className="wt-header__brand">
         <BrandMark size={34} />
         <span className="wt-header__titles">
           <Text className={styles.title} size={400}>
-            wheat tools
+            {t('app.name')}
           </Text>
           <Text className={styles.subtitle} size={200}>
-            麦工具
+            {t('app.subtitle')}
           </Text>
         </span>
-      </Link>
+      </div>
 
       <span className="wt-header__spacer" />
 
-      <Tooltip content="设计规范：Fluent 2" relationship="label" withArrow>
+      <Tooltip content={t('header.designSpec')} relationship="label" withArrow>
         <Button
           as="a"
           appearance="subtle"
@@ -60,12 +90,12 @@ export function AppHeader() {
           target="_blank"
           rel="noreferrer"
           icon={<Lightbulb20Regular />}
-          aria-label="Fluent 2 设计规范"
+          aria-label={t('header.designSpec')}
         />
       </Tooltip>
 
       <Tooltip
-        content={mode === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+        content={mode === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
         relationship="label"
         withArrow
       >
@@ -73,8 +103,24 @@ export function AppHeader() {
           appearance="subtle"
           icon={mode === 'dark' ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
           onClick={toggleMode}
-          aria-label={mode === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+          aria-label={mode === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
         />
+      </Tooltip>
+
+      <Tooltip content={t('header.switchLanguage')} relationship="label" withArrow>
+        <Dropdown
+          className={styles.language}
+          value={LOCALES.find((item) => item.id === locale)?.label ?? locale}
+          selectedOptions={[locale]}
+          onOptionSelect={(_, data) => setLocale(data.optionValue as Locale)}
+          aria-label={t('header.language')}
+        >
+          {LOCALES.map((item) => (
+            <Option key={item.id} value={item.id} text={item.label}>
+              {item.label}
+            </Option>
+          ))}
+        </Dropdown>
       </Tooltip>
     </header>
   );

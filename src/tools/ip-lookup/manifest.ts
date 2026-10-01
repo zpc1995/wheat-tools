@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'network',
   icon: GlobeRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Public IP lookup",
+      description:
+        "Look up your public IPv4 and IPv6 addresses with their location, ISP, ASN and time zone. The only tool that makes a third-party network request.",
+      tags: ["IP","network","geolocation"],
+    },
+  },
 };

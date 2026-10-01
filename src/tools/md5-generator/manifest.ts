@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'crypto',
   icon: FingerprintRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "MD5 generator",
+      description:
+        "A hand-written MD5 (Web Crypto does not provide one) alongside SHA-1 and SHA-256, with file hashing and digest comparison.",
+      tags: ["MD5","hash","SHA"],
+    },
+  },
 };

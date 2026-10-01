@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'time',
   icon: CalendarClockRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "CRON expressions",
+      description:
+        "Validate a cron expression, describe it in words, preview the next 8 run times, and build one visually from templates.",
+      tags: ["cron","schedule","crontab"],
+    },
+  },
 };

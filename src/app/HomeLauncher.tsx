@@ -15,9 +15,13 @@ import {
   Star16Filled,
   Star16Regular,
   Wrench24Filled,
+  Wrench16Regular,
+  Code16Regular,
 } from '@fluentui/react-icons';
 import { useHref } from 'react-router-dom';
 import { prefetchTool } from '../tools/registry';
+import { useI18n } from '../i18n';
+import { localiseManifest } from '../i18n/manifest';
 import { tools } from '../tools/registry';
 import { useUsage } from '../tools/usage';
 import type { RegisteredTool } from '../tools/types';
@@ -61,6 +65,24 @@ const useStyles = makeStyles({
   starOn: {
     color: tokens.colorPaletteMarigoldForeground1,
   },
+  footer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '16px',
+    marginTop: '28px',
+    paddingTop: '16px',
+    borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+    color: tokens.colorNeutralForeground3,
+  },
+  footerItem: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  footerLink: {
+    color: tokens.colorBrandForeground1,
+  },
 });
 
 /**
@@ -74,6 +96,8 @@ const useStyles = makeStyles({
 function ToolCard({ tool }: { tool: RegisteredTool }) {
   const styles = useStyles();
   const { isFavorite, toggleFavorite } = useUsage();
+  const { t, locale } = useI18n();
+  const localised = localiseManifest(tool, locale);
   const href = useHref(`/tools/${tool.id}`);
   const Icon = tool.icon;
   const favorite = isFavorite(tool.id);
@@ -93,8 +117,12 @@ function ToolCard({ tool }: { tool: RegisteredTool }) {
         }
         onClick={() => toggleFavorite(tool.id)}
         aria-pressed={favorite}
-        aria-label={favorite ? `取消收藏 ${tool.name}` : `收藏 ${tool.name}`}
-        title={favorite ? '取消收藏' : '收藏'}
+        aria-label={
+          favorite
+            ? `${t('launcher.removeFavorite')} ${localised.name}`
+            : `${t('launcher.addFavorite')} ${localised.name}`
+        }
+        title={favorite ? t('launcher.removeFavorite') : t('launcher.addFavorite')}
       />
 
       <a
@@ -109,12 +137,12 @@ function ToolCard({ tool }: { tool: RegisteredTool }) {
           {Icon ? <Icon /> : <Wrench24Filled />}
         </span>
         <div className={styles.cardText}>
-          <Subtitle1>{tool.name}</Subtitle1>
-          <Text size={200}>{tool.description}</Text>
+          <Subtitle1>{localised.name}</Subtitle1>
+          <Text size={200}>{localised.description}</Text>
         </div>
-        {tool.tags && tool.tags.length > 0 && (
+        {localised.tags.length > 0 && (
           <div className={styles.tags}>
-            {tool.tags.map((tag) => (
+            {localised.tags.map((tag) => (
               <Badge key={tag} appearance="tint" color="brand" size="small">
                 {tag}
               </Badge>
@@ -129,12 +157,27 @@ function ToolCard({ tool }: { tool: RegisteredTool }) {
 export function HomeLauncher() {
   const styles = useStyles();
   const [query, setQuery] = useState('');
+  const { t } = useI18n();
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return tools;
     return tools.filter((tool) =>
-      [tool.name, tool.description, tool.id, ...(tool.tags ?? [])]
+      // Search both languages' metadata: someone may type an English word
+      // while the interface is Chinese, or the reverse.
+      [
+        tool.name,
+        tool.description,
+        tool.id,
+        ...(tool.tags ?? []),
+        ...(tool.translations?.['en-US']
+          ? [
+              tool.translations['en-US'].name ?? '',
+              tool.translations['en-US'].description ?? '',
+              ...(tool.translations['en-US'].tags ?? []),
+            ]
+          : []),
+      ]
         .join(' ')
         .toLowerCase()
         .includes(needle),
@@ -144,11 +187,8 @@ export function HomeLauncher() {
   return (
     <div className="wt-page">
       <header className="wt-hero">
-        <Title2 as="h1">工具箱</Title2>
-        <Text>
-          共 {tools.length} 个独立小工具，除「外网 IP 查询」需请求第三方接口外，
-          其余全部在浏览器本地运行。
-        </Text>
+        <Title2 as="h1">{t('launcher.title')}</Title2>
+        <Text>{t('launcher.subtitle', { count: tools.length })}</Text>
       </header>
 
       <div className={styles.searchRow}>
@@ -156,23 +196,23 @@ export function HomeLauncher() {
           className={styles.search}
           value={query}
           onChange={(_, data) => setQuery(data.value)}
-          placeholder="搜索工具…"
-          aria-label="搜索工具"
+          placeholder={t('launcher.searchPlaceholder')}
+          aria-label={t('launcher.searchLabel')}
           contentBefore={<Search20Regular />}
           type="search"
         />
-        <Caption1>
-          {filtered.length} / {tools.length}
+        <Caption1 aria-live="polite">
+          {t('launcher.countOf', { shown: filtered.length, total: tools.length })}
         </Caption1>
       </div>
 
       {filtered.length === 0 ? (
         <div className={styles.emptyState}>
           <Wrench24Filled />
-          <Subtitle1 as="h2">没有匹配的工具</Subtitle1>
-          <Text>换个关键词试试，或清空搜索框查看全部工具。</Text>
+          <Subtitle1 as="h2">{t('launcher.noMatch')}</Subtitle1>
+          <Text>{t('launcher.noMatchHint')}</Text>
           <Button appearance="secondary" onClick={() => setQuery('')}>
-            清空搜索
+            {t('launcher.clearSearch')}
           </Button>
         </div>
       ) : (
@@ -182,6 +222,26 @@ export function HomeLauncher() {
           ))}
         </div>
       )}
+
+      {/* Provenance, stated on the page itself rather than only in the README:
+          the whole project was written by an agent, and that is worth knowing
+          when judging how much to trust it. */}
+      <footer className={styles.footer}>
+        <Caption1 className={styles.footerItem}>
+          <Wrench16Regular /> {t('footer.local')}
+        </Caption1>
+        <Caption1 className={styles.footerItem}>
+          <Code16Regular /> {t('footer.built')} {t('app.builtWithShort')}
+        </Caption1>
+        <a
+          className={styles.footerLink}
+          href="https://github.com/zpc1995/wheat-tools"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {t('footer.source')} · GitHub
+        </a>
+      </footer>
     </div>
   );
 }

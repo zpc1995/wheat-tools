@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: RulerRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Unit converter",
+      description:
+        "Ten categories of unit conversion. Temperature uses an affine transform, and storage distinguishes 1000 from 1024 — both verified against NIST definitions.",
+      tags: ["unit","convert","measure"],
+    },
+  },
 };

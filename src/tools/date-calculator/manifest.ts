@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'time',
   icon: CalendarLtrRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Date calculator",
+      description:
+        "Difference between two dates, date arithmetic, age and business-day counting. Calendar months truncate (31 Jan + 1 month = 28 Feb) and a day means a calendar day even across a DST change.",
+      tags: ["date","calculate","business days"],
+    },
+  },
 };

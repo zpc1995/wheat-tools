@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'network',
   icon: KeyRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "JWT decoder",
+      description:
+        "Inspect a JWT’s header and payload, its time claims and algorithm risks. Decoding only — it does not verify, and the UI says so, because a decoded token is not a trusted one.",
+      tags: ["JWT","token","decode"],
+    },
+  },
 };

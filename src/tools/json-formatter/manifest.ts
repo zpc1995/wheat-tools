@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: BracesRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "JSON formatter",
+      description:
+        "Paste JSON on the left and get a collapsible, syntax-highlighted tree on the right, with live validation that reports the line and column of an error.",
+      tags: ["JSON","format","validate"],
+    },
+  },
 };

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'network',
   icon: LinkRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "URL encoder",
+      description:
+        "Three escaping modes (component, whole URL, form) plus query-string and URL-structure inspection.",
+      tags: ["URL","encode","decode"],
+    },
+  },
 };

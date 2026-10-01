@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: CalculatorRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Number base converter",
+      description:
+        "Convert between bases 2 and 36. Integers use BigInt so nothing is lost beyond 2^53, and fractions use scaled-integer arithmetic rather than floating point.",
+      tags: ["base","binary","hex"],
+    },
+  },
 };

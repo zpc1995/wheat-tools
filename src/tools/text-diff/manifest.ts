@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: DocumentTextRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Text diff",
+      description:
+        "Compare two texts line by line. LCS guarantees a minimal edit script, inline changes are highlighted word by word, and unchanged runs are collapsed.",
+      tags: ["diff","compare","text"],
+    },
+  },
 };

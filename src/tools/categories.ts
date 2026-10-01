@@ -32,7 +32,9 @@ export interface CategoryMeta {
 }
 
 export const CATEGORIES: CategoryMeta[] = [
-  { id: 'common', label: '常用工具', order: 0, virtual: true, limit: 8 },
+  // Capped at 10 so the shortcut list stays scannable; entries are ranked by
+  // open count (ties broken by most recent use).
+  { id: 'common', label: '常用工具', order: 0, virtual: true, limit: 10 },
   { id: 'favorite', label: '我的收藏', order: 1, virtual: true },
   { id: 'dev', label: '编程工具', order: 10 },
   { id: 'time', label: '时间工具', order: 20 },

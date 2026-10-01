@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: DocumentTextRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "JSON Schema generator",
+      description:
+        "Generate a draft 2020-12 schema from one or more JSON samples. Multiple samples determine which fields are required, and the real behaviour of `format` and `additionalProperties` is explained.",
+      tags: ["JSON","Schema","validation"],
+    },
+  },
 };

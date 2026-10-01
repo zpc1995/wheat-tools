@@ -35,6 +35,24 @@ export interface ToolManifest {
   icon?: ComponentType;
   /** Optional author / origin note shown in the tool footer. */
   version?: string;
+  /**
+   * Per-locale overrides for the user-visible metadata.
+   *
+   * The base `name` / `description` / `tags` above are Simplified Chinese, which
+   * is the language the tool content itself is written in. A locale listed here
+   * overrides them; anything absent falls back to the base values, so a tool can
+   * be translated incrementally without ever showing a blank card.
+   */
+  translations?: Partial<
+    Record<
+      'zh-CN' | 'en-US',
+      {
+        name?: string;
+        description?: string;
+        tags?: string[];
+      }
+    >
+  >;
 }
 
 /** The default export shape of a tool's component module. */

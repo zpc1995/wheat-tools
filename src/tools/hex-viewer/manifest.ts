@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: DocumentTextRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Hex viewer",
+      description:
+        "Inspect any file as hex and text, identify its real type from its magic bytes, measure entropy and printable ratio, and extract embedded readable strings.",
+      tags: ["hex","binary","file"],
+    },
+  },
 };

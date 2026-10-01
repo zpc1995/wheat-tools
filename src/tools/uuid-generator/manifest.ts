@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: KeyRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "UUID generator",
+      description:
+        "Generates a v4 UUID on entry, regenerates on demand, and keeps a history you can copy, favourite and export.",
+      tags: ["UUID","GUID","random"],
+    },
+  },
 };

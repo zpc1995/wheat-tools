@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'time',
   icon: ClockRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Timestamp converter",
+      description:
+        "Convert between Unix timestamps and dates, auto-detecting seconds or milliseconds by digit count, with ISO, UTC, multiple zones, week number and relative time.",
+      tags: ["timestamp","Unix","date"],
+    },
+  },
 };

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: BracesRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Regex tester",
+      description:
+        "Live match highlighting, capture and named groups, a replacement preview, a zero-length-match guard and warnings about catastrophic backtracking.",
+      tags: ["regex","match","test"],
+    },
+  },
 };

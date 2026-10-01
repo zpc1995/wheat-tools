@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: DocumentTextRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Markdown preview",
+      description:
+        "Live GFM rendering with a table of contents. Raw HTML is never parsed, which makes XSS structurally impossible.",
+      tags: ["Markdown","preview","GFM"],
+    },
+  },
 };

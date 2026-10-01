@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'dev',
   icon: BracesRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "JSON to types",
+      description:
+        "Generate TypeScript interfaces or Go structs from one or more JSON samples. Merging samples infers optional fields, and the generated TypeScript is checked by the compiler.",
+      tags: ["JSON","TypeScript","Go"],
+    },
+  },
 };

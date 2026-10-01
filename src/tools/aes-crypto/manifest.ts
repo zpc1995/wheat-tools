@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'crypto',
   icon: LockClosedRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "AES encryption",
+      description:
+        "AES-256 symmetric encryption (GCM with integrity checking). The passphrase is stretched with PBKDF2 and the ciphertext carries its own salt and IV so it can be decrypted later. Supports files.",
+      tags: ["AES","encryption","passphrase"],
+    },
+  },
 };

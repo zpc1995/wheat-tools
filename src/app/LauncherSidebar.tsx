@@ -14,9 +14,29 @@ import {
 } from '@fluentui/react-icons';
 import { Link } from 'react-router-dom';
 import { ASSIGNABLE_CATEGORIES, categoryMeta, type ToolCategory } from '../tools/categories';
+import { useI18n, type TranslationKey } from '../i18n';
+import { localiseManifest } from '../i18n/manifest';
 import { prefetchTool, tools } from '../tools/registry';
 import { rankByUsage, useUsage, type UsageStats } from '../tools/usage';
 import type { RegisteredTool } from '../tools/types';
+
+/**
+ * Category label for the current locale.
+ *
+ * The dictionary is preferred and the manifest's Chinese label is the fallback,
+ * so a new category shows something sensible before it is translated.
+ */
+function categoryLabel(
+  id: ToolCategory,
+  fallback: string,
+  t: (key: TranslationKey) => string,
+): string {
+  const key = `categories.${id}` as TranslationKey;
+  const value = t(key);
+  // `t` returns the key itself when it is missing, which is how a fallback is
+  // detected without duplicating the dictionary shape here.
+  return value === key ? fallback : value;
+}
 
 /** How many favourites to show before the list gets unwieldy. */
 const MAX_FAVORITES = 20;
@@ -226,6 +246,7 @@ interface LauncherSidebarProps {
 export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
   const styles = useStyles();
   const { stats } = useUsage();
+  const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState<Set<ToolCategory>>(readCollapsed);
 
   // Collapse-all / expand-all, which is what people want once the list grows.
@@ -289,7 +310,7 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
               onMouseEnter={() => prefetchTool(id)}
               onFocus={() => prefetchTool(id)}
               aria-current={active ? 'page' : undefined}
-              title={tool.name}
+              title={localiseManifest(tool, locale).name}
             >
               {showStar && <Star16Filled className={styles.star} />}
               <span className={styles.itemLabel}>{tool.name}</span>
@@ -333,7 +354,7 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
   };
 
   return (
-    <nav className={styles.root} aria-label="工具导航">
+    <nav className={styles.root} aria-label={t('nav.ariaLabel')}>
       {/* Always present: the brand in the header is clickable, but there was no
           obvious way back once a tool was open and the list scrolled. */}
       <Link
@@ -342,48 +363,54 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
         aria-current={activeId ? undefined : 'page'}
       >
         <Grid16Filled className={styles.homeIcon} />
-        <span className={styles.itemLabel}>工具箱首页</span>
+        <span className={styles.itemLabel}>{t('nav.home')}</span>
       </Link>
 
-      {renderSection('common', '常用工具', common, {
+      {renderSection('common', t('categories.common'), common, {
         showCounts: true,
-        emptyHint: '打开工具后，这里会按使用次数排序显示。',
+        emptyHint: t('nav.commonEmpty'),
       })}
 
-      {renderSection('favorite', '我的收藏', favorites, {
+      {renderSection('favorite', t('categories.favorite'), favorites, {
         showStar: true,
-        emptyHint: '点击工具卡片右上角的星标即可收藏。',
+        emptyHint: t('nav.favoriteEmpty'),
       })}
 
       <div className={styles.groupsHead}>
         <Caption1 style={{ color: tokens.colorNeutralForeground4 }}>
-          工具分类
+          {t('nav.groups')}
         </Caption1>
         <button
           type="button"
           className={styles.groupsToggle}
           onClick={toggleAll}
         >
-          {allCollapsed ? '全部展开' : '全部收起'}
+          {allCollapsed ? t('nav.expandAll') : t('nav.collapseAll')}
         </button>
       </div>
 
       {grouped.map(({ category, items }) =>
         renderSection(
           category.id,
-          category.label,
+          // Prefer the dictionary so category names follow the interface
+          // language; the manifest label stays as the fallback.
+          categoryLabel(category.id, category.label, t),
           items.map((tool) => tool.id),
           {},
         ),
       )}
 
-      <Tooltip
-        content="统计与收藏保存在浏览器本地（localStorage），不会上传"
-        relationship="description"
-        withArrow
-      >
+      <Tooltip content={t('nav.localStorageHint')} relationship="description" withArrow>
         <Text size={200} style={{ color: tokens.colorNeutralForeground4, padding: '0 8px' }}>
-          本地保存 · 不上传
+          {t('nav.localStorageNote')}
+        </Text>
+      </Tooltip>
+
+      {/* Provenance lives here as well as in the launcher footer: the sidebar is
+          always on screen, whereas the footer needs scrolling to reach. */}
+      <Tooltip content={t('app.builtWith')} relationship="description" withArrow>
+        <Text size={200} style={{ color: tokens.colorNeutralForeground4, padding: '0 8px' }}>
+          {t('app.builtWithShort')}
         </Text>
       </Tooltip>
     </nav>

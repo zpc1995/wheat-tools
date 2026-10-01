@@ -21,7 +21,12 @@ import { readdirSync } from 'node:fs';
  * and a check that cannot run must not look like one that passed. `--all` runs
  * them for local use.
  */
-const BROWSER_CHECKS = new Set(['check-tools.mjs', 'verify-ui.mjs', 'check-a11y.mjs']);
+const BROWSER_CHECKS = new Set([
+  'check-tools.mjs',
+  'check-a11y.mjs',
+  'check-sidebar.mjs',
+  'verify-ui.mjs',
+]);
 
 /** Checks that need an external binary, and what happens without it. */
 const EXTERNAL_REQUIREMENTS = {

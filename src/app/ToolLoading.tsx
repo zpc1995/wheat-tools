@@ -1,4 +1,5 @@
 import { Caption1, Skeleton, SkeletonItem, Text, makeStyles, tokens } from '@fluentui/react-components';
+import { useI18n } from '../i18n';
 
 const useStyles = makeStyles({
   root: {
@@ -31,12 +32,13 @@ const useStyles = makeStyles({
  */
 export function ToolLoading({ name }: { name?: string }) {
   const styles = useStyles();
+  const { t } = useI18n();
 
   return (
     <div className={styles.root} aria-busy="true" aria-live="polite">
       <div className={styles.head}>
         <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-          {name ? `正在加载「${name}」…` : '正在加载工具…'}
+          {name ? t('toolPage.loading', { name }) : t('toolPage.loadingGeneric')}
         </Text>
       </div>
 
@@ -62,7 +64,7 @@ export function ToolLoading({ name }: { name?: string }) {
       </div>
 
       <Caption1 style={{ color: tokens.colorNeutralForeground4 }}>
-        首次打开该工具需要下载它的代码，之后会立即打开。
+        {t('toolPage.loadingHint')}
       </Caption1>
     </div>
   );

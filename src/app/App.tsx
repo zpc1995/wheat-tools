@@ -13,6 +13,7 @@ import { useToolId } from './useToolId';
 import { HomeLauncher } from './HomeLauncher';
 import { ToolPage } from './ToolPage';
 import { AppThemeProvider } from './theme';
+import { I18nProvider } from '../i18n';
 
 /**
  * The production app uses hash routing so it can be served from any static
@@ -90,8 +91,12 @@ function AppRoutes() {
 
 export function App() {
   return (
-    <AppThemeProvider>
-      <AppRoutes />
-    </AppThemeProvider>
+    // i18n wraps the theme provider so that even the theme's own labels (the
+    // toggle tooltips) can be translated.
+    <I18nProvider>
+      <AppThemeProvider>
+        <AppRoutes />
+      </AppThemeProvider>
+    </I18nProvider>
   );
 }

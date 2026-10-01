@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: TableRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "YAML to JSON",
+      description:
+        "Two-way conversion that reports duplicate keys, does not evaluate custom tags, bounds alias expansion, and can show the structure tree and statistics.",
+      tags: ["YAML","JSON","config"],
+    },
+  },
 };

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'network',
   icon: LinkRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "URL parameter editor",
+      description:
+        "Edit query parameters row by row, preserving repeated keys and their order, distinguishing a valueless parameter from an empty one, and able to re-emit the original escaping byte for byte (needed for signed URLs).",
+      tags: ["URL","parameters","query string"],
+    },
+  },
 };

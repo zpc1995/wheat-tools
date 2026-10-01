@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'text',
   icon: TextBulletListSquareRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Text toolkit",
+      description:
+        "Over 30 operations: case conversion, line sorting, de-duplication and shuffling, whitespace and punctuation cleanup, full-width conversion, escaping and statistics — all undoable.",
+      tags: ["text","batch","lines"],
+    },
+  },
 };

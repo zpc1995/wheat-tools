@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'media',
   icon: ImageRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Image compressor",
+      description:
+        "Compress and resize images (JPEG/WebP/PNG) locally, compare file sizes, and convert to a Base64 data URL with embed snippets.",
+      tags: ["image","compress","Base64"],
+    },
+  },
 };

@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'media',
   icon: QrCodeRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "QR code reader",
+      description:
+        "Decode a QR code from an uploaded image and break its content into labelled fields (WiFi, contact, 2FA, URL). Dangerous schemes are blocked and phishing hints are given.",
+      tags: ["QR code","scan","decode"],
+    },
+  },
 };

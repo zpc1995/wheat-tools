@@ -1,8 +1,18 @@
 import { Suspense, lazy, useMemo } from 'react';
-import { Button, Subtitle1, Text, makeStyles, tokens } from '@fluentui/react-components';
+import {
+  Button,
+  MessageBar,
+  MessageBarBody,
+  Subtitle1,
+  Text,
+  makeStyles,
+  tokens,
+} from '@fluentui/react-components';
 import { Link, useNavigate } from 'react-router-dom';
 import { getTool } from '../tools/registry';
 import { ToolLoading } from './ToolLoading';
+import { useI18n } from '../i18n';
+import { hasMetadataTranslation, localiseManifest } from '../i18n/manifest';
 
 const useStyles = makeStyles({
   titleRow: {
@@ -45,15 +55,16 @@ export function ToolPage({ toolId }: ToolPageProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const tool = getTool(toolId);
+  const { t, locale } = useI18n();
 
   if (!tool) {
     return (
       <div className="wt-page">
         <div className={styles.missing}>
-          <Subtitle1 as="h1">未找到工具 “{toolId}”</Subtitle1>
-          <Text>它可能已被移除，或链接有误。</Text>
+          <Subtitle1 as="h1">{t('toolPage.notFound', { id: toolId ?? '' })}</Subtitle1>
+          <Text>{t('toolPage.notFoundHint')}</Text>
           <Button appearance="primary" onClick={() => navigate('/')}>
-            返回工具箱
+            {t('toolPage.back')}
           </Button>
         </div>
       </div>
@@ -66,28 +77,40 @@ export function ToolPage({ toolId }: ToolPageProps) {
   // the cache here keys off the tool id.
   const LazyTool = useMemo(() => lazy(async () => ({ default: await tool.load() })), [tool.id]);
 
+  const localised = localiseManifest(tool, locale);
+  // Tool *content* is authored in Chinese; only the chrome is translated. Saying
+  // so is better than letting a Chinese-only panel look like a bug.
+  const needsTranslationNotice =
+    locale !== 'zh-CN' && hasMetadataTranslation(tool, locale);
+
   return (
     <div className="wt-page">
       <header className="wt-hero">
         <div className={styles.titleRow}>
-          <Subtitle1 as="h1">{tool.name}</Subtitle1>
+          <Subtitle1 as="h1">{localised.name}</Subtitle1>
           {tool.version && (
             <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-              v{tool.version}
+              {t('toolPage.version', { version: tool.version })}
             </Text>
           )}
           <Link className="wt-back-link" to="/">
-            工具箱
+            {t('toolPage.backToLauncher')}
           </Link>
         </div>
-        <Text>{tool.description}</Text>
+        <Text>{localised.description}</Text>
+
+        {needsTranslationNotice && (
+          <MessageBar intent="info" style={{ marginTop: 8 }}>
+            <MessageBarBody>{t('toolPage.contentNotTranslated')}</MessageBarBody>
+          </MessageBar>
+        )}
       </header>
 
       <div className={styles.body}>
         {/* The fallback is deliberately not a spinner: chunks are small and
             often already prefetched, so a flash of spinner is worse than a
             skeleton that matches the page shape. */}
-        <Suspense fallback={<ToolLoading name={tool.name} />}>
+        <Suspense fallback={<ToolLoading name={localised.name} />}>
           <LazyTool />
         </Suspense>
       </div>

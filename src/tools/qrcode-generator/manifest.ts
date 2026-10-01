@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'media',
   icon: QrCodeRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "QR code generator",
+      description:
+        "Generate QR codes for URLs, text, WiFi and contact cards with adjustable error correction, size, margin and colours, plus warnings about low contrast and inverted codes.",
+      tags: ["QR code","generate","share"],
+    },
+  },
 };

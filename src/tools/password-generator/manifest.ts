@@ -10,4 +10,12 @@ export const manifest: ToolManifest = {
   category: 'crypto',
   icon: KeyRegular,
   version: '0.1.0',
+  translations: {
+    'en-US': {
+      name: "Password generator",
+      description:
+        "Generate random passwords or passphrases with `crypto` (rejection sampling removes modulo bias) and judge them by entropy, with batch generation.",
+      tags: ["password","random","entropy"],
+    },
+  },
 };
