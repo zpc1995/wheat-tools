@@ -9,13 +9,11 @@ import {
 import {
   Lightbulb20Regular,
   Navigation20Regular,
-  WeatherMoon20Regular,
-  WeatherSunny20Regular,
 } from '@fluentui/react-icons';
-import { useAppTheme } from './theme';
+import { useAppTheme, type ThemePreference } from './theme';
 import { BrandMark } from './BrandMark';
 import { useSidebar } from './AppLayout';
-import { LOCALES, useI18n, type Locale } from '../i18n';
+import { LOCALES, useI18n, type Locale, type TranslationKey } from '../i18n';
 
 const useStyles = makeStyles({
   title: {
@@ -27,11 +25,26 @@ const useStyles = makeStyles({
   language: {
     minWidth: '118px',
   },
+  theme: {
+    minWidth: '112px',
+  },
 });
+
+/**
+ * Label for the current theme preference.
+ *
+ * Kept as a lookup rather than inline ternaries so each option's label comes
+ * from exactly one place, and the rendered value always matches the list.
+ */
+const THEME_LABELS: Record<ThemePreference, (t: (key: TranslationKey) => string) => string> = {
+  system: (t) => t('header.themeSystem'),
+  light: (t) => t('header.themeLight'),
+  dark: (t) => t('header.themeDark'),
+};
 
 export function AppHeader() {
   const styles = useStyles();
-  const { mode, toggleMode } = useAppTheme();
+  const { preference, setPreference } = useAppTheme();
   const { open, railVisible, narrow, toggle } = useSidebar();
   const { t, locale, setLocale } = useI18n();
 
@@ -94,17 +107,33 @@ export function AppHeader() {
         />
       </Tooltip>
 
-      <Tooltip
-        content={mode === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
-        relationship="label"
-        withArrow
-      >
-        <Button
-          appearance="subtle"
-          icon={mode === 'dark' ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
-          onClick={toggleMode}
-          aria-label={mode === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
-        />
+      {/* A three-way choice rather than a toggle: a toggle cannot express
+          "follow the system", and could never return to it once pinned.
+
+          Rendered as a plain Dropdown rather than one with a custom `button`:
+          the custom form produced two elements carrying the same aria-label,
+          which makes the control ambiguous to a screen reader and to anything
+          selecting it by name. */}
+      <Tooltip content={t('header.theme')} relationship="label" withArrow>
+        <Dropdown
+          className={styles.theme}
+          value={THEME_LABELS[preference](t)}
+          selectedOptions={[preference]}
+          onOptionSelect={(_, data) =>
+            setPreference(data.optionValue as ThemePreference)
+          }
+          aria-label={t('header.theme')}
+        >
+          <Option value="system" text={t('header.themeSystem')}>
+            {t('header.themeSystem')}
+          </Option>
+          <Option value="light" text={t('header.themeLight')}>
+            {t('header.themeLight')}
+          </Option>
+          <Option value="dark" text={t('header.themeDark')}>
+            {t('header.themeDark')}
+          </Option>
+        </Dropdown>
       </Tooltip>
 
       <Tooltip content={t('header.switchLanguage')} relationship="label" withArrow>

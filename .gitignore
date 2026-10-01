@@ -15,6 +15,10 @@ dist-ssr
 .verify
 .screenshots
 
+# Write-ups and their screenshots. Deliberately untracked: these are personal
+# posts for other platforms, not part of the project or its releases.
+/article/
+
 # Ad-hoc diagnostic/scratch builds
 dist-icon
 dist-probe

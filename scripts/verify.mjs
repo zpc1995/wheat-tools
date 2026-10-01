@@ -25,6 +25,7 @@ const BROWSER_CHECKS = new Set([
   'check-tools.mjs',
   'check-a11y.mjs',
   'check-sidebar.mjs',
+  'check-theme.mjs',
   'verify-ui.mjs',
 ]);
 

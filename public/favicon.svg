@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
+  <!-- Same three brand-ramp stops as BrandMark.tsx, so the tab icon and the
+       header mark cannot drift apart. Each keeps the white W at >=3:1
+       (3.63 / 6.96 / 10.75 respectively). -->
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0.4" y2="1">
-      <stop offset="0%" stop-color="#7cb3ff"/>
-      <stop offset="45%" stop-color="#2f6fed"/>
-      <stop offset="100%" stop-color="#1a4bb8"/>
+      <stop offset="0%" stop-color="#956ef2"/>
+      <stop offset="45%" stop-color="#5f1df8"/>
+      <stop offset="100%" stop-color="#4212b1"/>
     </linearGradient>
   </defs>
   <rect x="1" y="1" width="22" height="22" rx="6.5" fill="url(#g)"/>

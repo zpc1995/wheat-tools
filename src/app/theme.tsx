@@ -15,9 +15,21 @@ import {
   type Theme,
 } from '@fluentui/react-components';
 
+/**
+ * What the user chose, which is not the same as what is displayed.
+ *
+ * `system` is the default: the app then follows the browser/OS preference and
+ * changes with it live. Picking `light` or `dark` pins the choice, which is what
+ * someone does when they disagree with their OS.
+ */
+export type ThemePreference = 'system' | 'light' | 'dark';
+
+/** The theme actually rendered. */
 export type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'wheat-tools:theme';
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 /**
  * Brand ramp: violet, 258° hue.
@@ -69,10 +81,13 @@ const lightTheme = createLightTheme(brandRamp);
 const darkTheme = createDarkTheme(brandRamp);
 
 interface ThemeContextValue {
+  /** The theme currently rendered. */
   mode: ThemeMode;
+  /** What the user asked for, including `system`. */
+  preference: ThemePreference;
   theme: Theme;
   toggleMode: () => void;
-  setMode: (mode: ThemeMode) => void;
+  setPreference: (preference: ThemePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -81,58 +96,96 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
  * `localStorage` throws in some embedded/sandboxed contexts, so every access
  * is guarded — the theme simply stops persisting instead of breaking the app.
  */
-function readStoredMode(): ThemeMode | null {
+function isPreference(value: unknown): value is ThemePreference {
+  return value === 'system' || value === 'light' || value === 'dark';
+}
+
+function readStoredPreference(): ThemePreference | null {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : null;
+    // 'light' and 'dark' written by an earlier version are still valid
+    // preferences, so an existing choice survives the upgrade.
+    return isPreference(stored) ? stored : null;
   } catch {
     return null;
   }
 }
 
-function storeMode(mode: ThemeMode): void {
+function storePreference(preference: ThemePreference): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, mode);
+    window.localStorage.setItem(STORAGE_KEY, preference);
   } catch {
     // Persistence is a nice-to-have; ignore.
   }
 }
 
+/** Whether the OS currently prefers a dark colour scheme. */
+function systemPrefersDark(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.(DARK_QUERY).matches ?? false;
+}
+
 /**
- * Dark is the default.
+ * The default is to follow the system.
  *
- * The system preference is deliberately *not* consulted: a tool collection is
- * usually opened for a few minutes at a time, and defaulting to dark keeps the
- * first paint consistent regardless of what the OS happens to be set to. A
- * stored choice always wins, so switching to light sticks.
+ * This is the least surprising behaviour: someone whose OS is set to light sees
+ * a light page, someone in dark mode sees dark, and either way it keeps up if
+ * they change the OS setting while the page is open. An earlier version pinned
+ * dark unconditionally, which meant fighting the OS on every visit.
  */
-function readInitialMode(): ThemeMode {
-  if (typeof window === 'undefined') return 'dark';
-  return readStoredMode() ?? 'dark';
+function readInitialPreference(): ThemePreference {
+  if (typeof window === 'undefined') return 'system';
+  return readStoredPreference() ?? 'system';
 }
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(readInitialMode);
+  const [preference, setPreferenceState] = useState<ThemePreference>(readInitialPreference);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+
+  // Track the OS preference even while it is overridden, so switching back to
+  // `system` is instant and correct rather than needing a reload.
+  useEffect(() => {
+    const query = window.matchMedia(DARK_QUERY);
+    const apply = () => setSystemDark(query.matches);
+    apply();
+    query.addEventListener('change', apply);
+    return () => query.removeEventListener('change', apply);
+  }, []);
+
+  const mode: ThemeMode =
+    preference === 'system' ? (systemDark ? 'dark' : 'light') : preference;
 
   useEffect(() => {
-    storeMode(mode);
+    storePreference(preference);
+    // `color-scheme` tells the browser to render form controls and scrollbars to
+    // match, which is why it is set from the resolved mode rather than the
+    // preference.
     document.documentElement.style.colorScheme = mode;
     document.documentElement.dataset.theme = mode;
-  }, [mode]);
+    document.documentElement.dataset.themePreference = preference;
+  }, [mode, preference]);
 
   const toggleMode = useCallback(
-    () => setMode((current) => (current === 'light' ? 'dark' : 'light')),
-    [],
+    // Toggling pins an explicit choice: if the OS says dark and the user asks for
+    // light, they mean it, so the result must not be `system` again.
+    () => setPreferenceState((current) => {
+      const resolved = current === 'system' ? (systemDark ? 'dark' : 'light') : current;
+      return resolved === 'light' ? 'dark' : 'light';
+    }),
+    [systemDark],
   );
+
+  const setPreference = useCallback((next: ThemePreference) => setPreferenceState(next), []);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       mode,
+      preference,
       theme: mode === 'dark' ? darkTheme : lightTheme,
       toggleMode,
-      setMode,
+      setPreference,
     }),
-    [mode, toggleMode],
+    [mode, preference, toggleMode, setPreference],
   );
 
   return (
