@@ -26,6 +26,7 @@ const BROWSER_CHECKS = new Set([
   'check-a11y.mjs',
   'check-sidebar.mjs',
   'check-theme.mjs',
+  'check-stopwatch-ui.mjs',
   'verify-ui.mjs',
 ]);
 

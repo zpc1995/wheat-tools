@@ -87,6 +87,28 @@ export const enUS: Dictionary = {
     other: 'Other',
   },
 
+  stopwatch: {
+    elapsed: 'Elapsed',
+    ready: 'Press space to start',
+    running: 'Running…',
+    paused: 'Paused',
+    start: 'Start',
+    pause: 'Pause',
+    resume: 'Resume',
+    lap: 'Lap',
+    lapHint: 'Shortcuts: space start/pause, L lap, R reset',
+    reset: 'Reset',
+    laps: 'Laps',
+    noLaps: 'Start the timer, then press Lap to record a split.',
+    lapNumber: 'Lap',
+    split: 'Split',
+    total: 'Total',
+    fastest: 'Fastest lap',
+    slowest: 'Slowest lap',
+    copyLaps: 'Copy laps',
+    lapFull: 'Lap limit of 1000 reached. Reset to start again.',
+  },
+
   common: {
     copy: 'Copy',
     copied: 'Copied',

@@ -90,6 +90,28 @@ export const zhCN = {
     other: '其它',
   },
 
+  stopwatch: {
+    elapsed: '已计时',
+    ready: '按空格开始计时',
+    running: '计时中…',
+    paused: '已暂停',
+    start: '开始',
+    pause: '暂停',
+    resume: '继续',
+    lap: '计次',
+    lapHint: '快捷键：空格 开始/暂停，L 计次，R 重置',
+    reset: '重置',
+    laps: '计次记录',
+    noLaps: '开始计时后按「计次」记录分段用时。',
+    lapNumber: '计次',
+    split: '分段',
+    total: '总时间',
+    fastest: '最快分段',
+    slowest: '最慢分段',
+    copyLaps: '复制计次',
+    lapFull: '计次已达上限 1000 条，请重置后重新开始。',
+  },
+
   common: {
     copy: '复制',
     copied: '已复制',
