@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 48 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 56 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 48 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 56 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 48 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 56 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -174,7 +174,14 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **HEX 查看器** | `hex-viewer` | 十六进制与文本查看、按文件头识别真实类型、熵与可打印占比统计、提取内嵌可读字符串。 |
 | **ULID 生成器** | `ulid-generator` | Crockford Base32 ULID，支持单调递增模式（同毫秒也严格按字符串有序）；随机部分溢出时按规范抛错而非回绕。 |
 | **Chmod 计算器** | `chmod-calculator` | 九个 rwx 位 + setuid/setgid/sticky 与八进制/符号互转，生成 `chmod` 命令。大小写 `s/S`、`t/T` 按有无执行位区分，与 `ls -l` 语义一致。 |
-| **HTTP 状态码** | `http-status-codes` | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
+| **数学表达式计算器** | `math-evaluator` | 手写词法+递归下降解析，**全程不用 eval / new Function**。`^` 右结合、一元负号低于幂（`-2^2 = -4`）。页面有专门章节用实测演示为什么不能用 eval。 |
+| **Git 速查表** | `git-cheatsheet` | 73 条命令按**场景**分组，13 条危险命令每条都写明补救办法（多数点名 `git reflog`）。核心检查是**危险等级与语义一致**，防止以后新增条目悄悄降级。 |
+| **JSON 结构化对比** | `json-diff` | 与 `text-diff` 的区别是解析后按结构比。数组可**按标识字段配对**——按 `id` 配对后数组重排只有位置移动、零内容差异。用 JSON Pointer 定位。 |
+| **JSON ↔ CSV** | `json-csv` | 表头取键的并集，嵌套对象按点号路径扁平化。CSV 解析遵循 RFC 4180（引号、字段内换行）。可选 BOM——Excel 打开无 BOM 的 UTF-8 CSV 会把中文显示成乱码。 |
+| **预计完成时间** | `eta-calculator` | 按进度或每项耗时估算。**有意显示不确定性**（由 1/√n 推出 ±误差），样本少时提示不可靠，而不是给一个假装精确的时间。 |
+| **百分比计算器** | `percentage-calculator` | 11 张卡片各带公式。含「涨 Y% 再降 Y% 不等于原值」这个高频误区。分配用最大余数法，各份之和精确等于总数。 |
+| **SafeLink 解码器** | `safelink-decoder` | 还原 Defender 包装的链接。`sdata` 是签名但**明确标注本工具不验证**，`signatureVerified` 恒为 false。`+` 号的表单/RFC 3986 歧义两种读法并排显示。 |
+| **列表格式转换** | `list-converter` | 每行/逗号/分号/空格/制表符/JSON/SQL IN/Markdown/有序/HTML/YAML 任意互转，每种按该语言的转义规则处理。 | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
 
 ### 时间工具
 
@@ -372,6 +379,14 @@ export function MyTool() {
 | `node scripts/check-basic-auth.mjs` | Basic 认证：**RFC 7617 官方示例** + Base64 四路互验 |
 | `node scripts/check-random-port.mjs` | 随机端口：RFC 6335 区间表与全部 65536 个取值逐一比对 |
 | `node scripts/check-ipv6-ula.mjs` | IPv6 ULA：**RFC 5952** 规则 + Node 的 WHATWG URL 原生 IPv6 序列化 |
+| `node scripts/check-math-evaluator.mjs` | 数学求值：**node:vm 的 eval** 与自写调度场算法两套独立求值器交叉验证 |
+| `node scripts/check-percentage-calculator.mjs` | 百分比：独立朴素算式 + 舍入的反证（`Math.round(1.005*100)` 是错的） |
+| `node scripts/check-eta-calculator.mjs` | ETA：手算已知值 + `Date` 原生 ISO 输出 + 源码级断言不读系统时钟 |
+| `node scripts/check-json-csv.mjs` | JSON/CSV：**CPython csv 模块逐字节比对** + RFC 4180 |
+| `node scripts/check-list-converter.mjs` | 列表转换：`JSON.parse` + `yaml` 库 + **CPython sqlite3 / html.parser** |
+| `node scripts/check-json-diff.mjs` | JSON 对比：往返性质（打补丁后与右侧深度相等）+ 自反性 + 对称性 + RFC 6901 |
+| `node scripts/check-safelink-decoder.mjs` | SafeLink：构造式往返回环 + 浏览器 `URLSearchParams` 作为独立参照 |
+| `node scripts/check-git-cheatsheet.mjs` | Git 速查：危险等级与实际语义一致性（丢数据的必须标危险、只读必须标安全） |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 
