@@ -8,6 +8,7 @@ export const manifest: ToolManifest = {
   description:
     '计算 MD5 摘要（纯实现，不依赖后端），同时给出 SHA-1 / SHA-256，支持文件哈希与结果校验。',
   tags: ['MD5', '哈希', '校验'],
+  category: 'crypto',
   icon: FingerprintRegular,
   version: '0.1.0',
 };

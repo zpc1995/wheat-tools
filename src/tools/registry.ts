@@ -1,3 +1,4 @@
+import { normalizeCategory } from './categories';
 import type { RegisteredTool, ToolComponent, ToolManifest } from './types';
 
 /** Shape a tool's `index.ts` is expected to expose. */
@@ -56,7 +57,11 @@ function loadTools(): RegisteredTool[] {
     }
     seenIds.set(mod.manifest.id, dir);
 
-    collected.push({ ...mod.manifest, Component: mod.default });
+    collected.push({
+      ...mod.manifest,
+      Component: mod.default,
+      resolvedCategory: normalizeCategory(mod.manifest.category),
+    });
   }
 
   if (problems.length > 0) {

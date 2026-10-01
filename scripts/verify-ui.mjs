@@ -237,17 +237,18 @@ async function openTool(name, selector) {
   const clicked = await evaluate(`(() => {
     const card = [...document.querySelectorAll('.wt-tool-card')]
       .find(c => c.textContent.includes(${JSON.stringify(name)}));
-    card?.click(); return !!card;
+    const link = card?.querySelector('.wt-tool-card__link') ?? card;
+    link?.click(); return !!card;
   })()`);
   if (!clicked) return false;
   return waitFor(selector);
 }
 
-/** Returns to the launcher via the header back button. */
+/** Returns to the launcher via the brand link in the header. */
 async function goHome() {
   await evaluate(`(() => {
-    const btn = document.querySelector('button[aria-label="返回工具箱"]');
-    btn?.click(); return !!btn;
+    const link = document.querySelector('.wt-header__brand');
+    link?.click(); return !!link;
   })()`);
   return waitFor('.wt-tool-card');
 }
@@ -442,7 +443,7 @@ try {
   const backOk = await goHome();
   report.backNavigation = await evaluate(`(() => ({
     returnedToLauncher: document.querySelectorAll('.wt-tool-card').length,
-    hasHeaderBackButton: !!document.querySelector('button[aria-label="返回工具箱"]'),
+    hasSidebar: !!document.querySelector('.wt-sidebar'),
     headerTitle: document.querySelector('.wt-header__titles')?.innerText.replace(/\\n/g,' / '),
   }))()`);
   report.backNavigation.waitedForCards = backOk;

@@ -166,20 +166,20 @@ try {
   for (let index = 0; index < cards.length; index += 1) {
     const before = consoleErrors.length;
 
-    // Re-render the launcher, then click the nth card.
+    // Return to the launcher through the sidebar's home link.
     await evaluate(`(() => {
-      const back = document.querySelector('button[aria-label="返回工具箱"]');
-      if (back) back.click();
+      const home = document.querySelector('.wt-header__brand');
+      if (home) home.click();
       return true;
     })()`);
-    await sleep(400);
+    await sleep(500);
 
     const name = await evaluate(`(() => {
       const cards = [...document.querySelectorAll('.wt-tool-card')];
       const card = cards[${index}];
       if (!card) return null;
       const title = card.querySelector('.fui-Subtitle1')?.textContent ?? '';
-      card.click();
+      (card.querySelector('.wt-tool-card__link') ?? card).click();
       return title;
     })()`);
 

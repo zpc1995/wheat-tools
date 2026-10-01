@@ -1,7 +1,7 @@
 /**
  * Scratch helper: screenshot an arbitrary file:// page.
  *
- * Usage: node scripts/shot.mjs <file-url> <output-png> [height]
+ * Usage: node scripts/shot.mjs <file-url> <output-png> [height] [width]
  *
  * Only used while developing the UI (e.g. eyeballing the wheat mark at large
  * sizes). Not part of the build or the test suite.
@@ -13,6 +13,7 @@ import { writeFileSync } from 'node:fs';
 const url = process.argv[2];
 const out = process.argv[3] ?? '.screenshots/scratch.png';
 const height = Number(process.argv[4] ?? 340);
+const width = Number(process.argv[5] ?? 1000);
 const PORT = 9270;
 
 const chrome = spawn(
@@ -23,7 +24,7 @@ const chrome = spawn(
     '--disable-gpu',
     '--user-data-dir=/tmp/wt-shot-profile',
     `--remote-debugging-port=${PORT}`,
-    `--window-size=1000,${height}`,
+    `--window-size=${width},${height}`,
     url,
   ],
   { stdio: ['ignore', 'ignore', 'ignore'] },

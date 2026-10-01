@@ -8,6 +8,7 @@ export const manifest: ToolManifest = {
   description:
     '粘贴 JSON 字符串，即时校验并格式化为可展开、可收起的树形结构。',
   tags: ['JSON', '格式化', '校验'],
+  category: 'text',
   icon: BracesRegular,
   version: '0.1.0',
 };

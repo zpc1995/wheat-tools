@@ -1,13 +1,14 @@
 import { Button, Text, Tooltip, makeStyles } from '@fluentui/react-components';
 import {
-  ArrowLeft20Regular,
   Lightbulb20Regular,
+  Navigation20Regular,
   WeatherMoon20Regular,
   WeatherSunny20Regular,
 } from '@fluentui/react-icons';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAppTheme } from './theme';
 import { BrandMark } from './BrandMark';
+import { useSidebar } from './AppLayout';
 
 const useStyles = makeStyles({
   title: {
@@ -18,30 +19,26 @@ const useStyles = makeStyles({
   },
 });
 
-interface AppHeaderProps {
-  /** When set, a back-to-launcher button is rendered on the left. */
-  backTo?: string;
-}
-
-export function AppHeader({ backTo }: AppHeaderProps) {
+export function AppHeader() {
   const styles = useStyles();
   const { mode, toggleMode } = useAppTheme();
-  const navigate = useNavigate();
+  const { open, toggle } = useSidebar();
 
   return (
     <header className="wt-header">
-      {backTo && (
-        <Tooltip content="返回工具箱" relationship="label" withArrow>
-          <Button
-            appearance="subtle"
-            icon={<ArrowLeft20Regular />}
-            onClick={() => navigate(backTo)}
-            aria-label="返回工具箱"
-          />
-        </Tooltip>
-      )}
+      {/* Only shown on narrow screens, where the sidebar is a drawer. */}
+      <Tooltip content="展开/收起导航" relationship="label" withArrow>
+        <Button
+          className="wt-nav-toggle"
+          appearance="subtle"
+          icon={<Navigation20Regular />}
+          onClick={toggle}
+          aria-expanded={open}
+          aria-label="展开或收起导航栏"
+        />
+      </Tooltip>
 
-      <div className="wt-header__brand">
+      <Link className="wt-header__brand" to="/" aria-label="返回工具箱首页">
         <BrandMark size={34} />
         <span className="wt-header__titles">
           <Text className={styles.title} size={400}>
@@ -51,7 +48,7 @@ export function AppHeader({ backTo }: AppHeaderProps) {
             麦工具
           </Text>
         </span>
-      </div>
+      </Link>
 
       <span className="wt-header__spacer" />
 
