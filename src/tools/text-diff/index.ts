@@ -1,16 +1,11 @@
-import { DocumentTextRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { TextDiffTool } from './TextDiffTool';
-
-export const manifest: ToolManifest = {
-  id: 'text-diff',
-  name: '文本对比',
-  description:
-    '逐行对比两段文本，LCS 算法保证最小差异脚本；行内改动词级高亮，长文本自动折叠未变部分。',
-  tags: ['Diff', '对比', '文本'],
-  category: 'text',
-  icon: DocumentTextRegular,
-  version: '0.1.0',
-};
-
-export default TextDiffTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { TextDiffTool as default } from './TextDiffTool';

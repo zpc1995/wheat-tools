@@ -1,16 +1,11 @@
-import { TextBulletListSquareRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { TextToolkitTool } from './TextToolkitTool';
-
-export const manifest: ToolManifest = {
-  id: 'text-toolkit',
-  name: '文本处理',
-  description:
-    '大小写、行排序/去重/洗牌、空白与标点清理、全半角转换、转义与统计等 30 余种操作，支持撤销。',
-  tags: ['文本', '批量', '行处理'],
-  category: 'text',
-  icon: TextBulletListSquareRegular,
-  version: '0.1.0',
-};
-
-export default TextToolkitTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { TextToolkitTool as default } from './TextToolkitTool';

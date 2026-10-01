@@ -1,16 +1,11 @@
-import { ClockRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { OnlineClockTool } from './OnlineClockTool';
-
-export const manifest: ToolManifest = {
-  id: 'online-clock',
-  name: '在线时钟',
-  description:
-    '大字时钟与世界时间换算（自动处理夏令时与半小时时区），附可在刷新后继续的倒计时。',
-  tags: ['时钟', '时区', '倒计时'],
-  category: 'time',
-  icon: ClockRegular,
-  version: '0.1.0',
-};
-
-export default OnlineClockTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { OnlineClockTool as default } from './OnlineClockTool';

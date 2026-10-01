@@ -1,16 +1,11 @@
-import { BookOpenRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { RegexCheatsheetTool } from './RegexCheatsheetTool';
-
-export const manifest: ToolManifest = {
-  id: 'regex-cheatsheet',
-  name: '正则速查表',
-  description:
-    '字符类、锚点、量词、分组、标志与常用模式的速查；每条都由测试真正编译并匹配过，并列出 JS 特有的陷阱。',
-  tags: ['正则', '速查', '参考'],
-  category: 'dev',
-  icon: BookOpenRegular,
-  version: '0.1.0',
-};
-
-export default RegexCheatsheetTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { RegexCheatsheetTool as default } from './RegexCheatsheetTool';

@@ -1,16 +1,11 @@
-import { DocumentTextRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { HexViewerTool } from './HexViewerTool';
-
-export const manifest: ToolManifest = {
-  id: 'hex-viewer',
-  name: 'HEX 查看器',
-  description:
-    '查看任意文件的十六进制与文本、按文件头识别真实类型、统计熵与可打印字符、提取内嵌可读字符串。',
-  tags: ['HEX', '二进制', '文件'],
-  category: 'dev',
-  icon: DocumentTextRegular,
-  version: '0.1.0',
-};
-
-export default HexViewerTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { HexViewerTool as default } from './HexViewerTool';

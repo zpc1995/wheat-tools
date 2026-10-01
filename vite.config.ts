@@ -49,5 +49,25 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        /**
+         * Name each lazily-loaded tool chunk after its directory.
+         *
+         * Every tool's entry file is called `index.ts`, so Rollup's default
+         * naming produced a pile of indistinguishable `index-<hash>.js` files.
+         * Deriving the name from the module path makes the split visible —
+         * `assets/aes-crypto-<hash>.js` — which matters both for debugging and
+         * for confirming that a heavy dependency really did leave the entry
+         * bundle.
+         */
+        chunkFileNames: (chunkInfo) => {
+          const id = chunkInfo.facadeModuleId ?? '';
+          const match = /src\/tools\/([^/]+)\//.exec(id.replace(/\\/g, '/'));
+          if (match) return `assets/tool-${match[1]}-[hash].js`;
+          return 'assets/[name]-[hash].js';
+        },
+      },
+    },
   },
 });

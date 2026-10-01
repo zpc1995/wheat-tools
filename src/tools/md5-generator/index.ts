@@ -1,16 +1,11 @@
-import { FingerprintRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { Md5GeneratorTool } from './Md5GeneratorTool';
-
-export const manifest: ToolManifest = {
-  id: 'md5-generator',
-  name: 'MD5 生成器',
-  description:
-    '计算 MD5 摘要（纯实现，不依赖后端），同时给出 SHA-1 / SHA-256，支持文件哈希与结果校验。',
-  tags: ['MD5', '哈希', '校验'],
-  category: 'crypto',
-  icon: FingerprintRegular,
-  version: '0.1.0',
-};
-
-export default Md5GeneratorTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { Md5GeneratorTool as default } from './Md5GeneratorTool';

@@ -1,16 +1,11 @@
-import { TableRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { YamlJsonTool } from './YamlJsonTool';
-
-export const manifest: ToolManifest = {
-  id: 'yaml-json',
-  name: 'YAML 转 JSON',
-  description:
-    'YAML 与 JSON 双向转换，重复键报错、自定义标签不求值、别名炸弹有上限，并可查看结构与统计。',
-  tags: ['YAML', 'JSON', '配置'],
-  category: 'text',
-  icon: TableRegular,
-  version: '0.1.0',
-};
-
-export default YamlJsonTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { YamlJsonTool as default } from './YamlJsonTool';

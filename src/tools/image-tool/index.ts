@@ -1,16 +1,11 @@
-import { ImageRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { ImageTool } from './ImageTool';
-
-export const manifest: ToolManifest = {
-  id: 'image-tool',
-  name: '图片压缩',
-  description:
-    '本地压缩与缩放图片（JPEG/WebP/PNG），显示体积对比，并可转为 Base64 data URL 与嵌入代码。',
-  tags: ['图片', '压缩', 'Base64'],
-  category: 'media',
-  icon: ImageRegular,
-  version: '0.1.0',
-};
-
-export default ImageTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { ImageTool as default } from './ImageTool';

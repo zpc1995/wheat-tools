@@ -8,7 +8,7 @@
  *
  * Usage: npm run build && node scripts/check-tools.mjs
  */
-import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -28,6 +28,21 @@ const js = readFileSync(
 const cssFile = files.find((f) => f.endsWith('.css'));
 const css = cssFile ? readFileSync(assetsDir + cssFile, 'utf8') : '';
 
+const entryFile = files.find((f) => /^index-.*\.js$/.test(f));
+if (!entryFile) {
+  console.error('dist/assets 中找不到入口 index-*.js，请先执行 vite build');
+  process.exit(1);
+}
+
+/**
+ * The harness lives *inside* dist/ on purpose.
+ *
+ * After code splitting, the entry uses dynamic `import("./tool-...js")`, which
+ * resolves relative to the importing module. A Blob URL (what this script used
+ * before) has no filesystem base, so every tool chunk would fail to load. Writing
+ * the page next to the assets keeps the relative paths valid. `vite build`
+ * empties dist/, so this file never survives into a deployment.
+ */
 const pageHtml = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <title>smoke</title><style>${css}</style></head><body><div id="root"></div>
 <script>
@@ -36,14 +51,27 @@ const pageHtml = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
   window.addEventListener('unhandledrejection', function (e) {
     window.__ERRORS__.push('unhandledrejection: ' + String(e.reason));
   });
-  var blob = new Blob([${JSON.stringify(js)}], { type: 'text/javascript' });
-  var s = document.createElement('script');
-  s.src = URL.createObjectURL(blob);
-  document.body.appendChild(s);
-</script></body></html>`;
+</script>
+<script type="module" src="./assets/${entryFile}"></script>
+</body></html>`;
 
-const pagePath = `${VERIFY_DIR}smoke.html`;
+const pagePath = `${ROOT}dist/__smoke.html`;
 writeFileSync(pagePath, pageHtml);
+
+/**
+ * Removes the harness page from dist on the way out.
+ *
+ * `vite build` empties dist/, so this file cannot survive a rebuild — but a
+ * manual `rsync dist/` right after running the checks would otherwise ship it.
+ */
+function cleanupHarness() {
+  try {
+    unlinkSync(pagePath);
+  } catch {
+    // Already gone; nothing to do.
+  }
+}
+process.on('exit', cleanupHarness);
 
 const chrome = spawn(
   'chromium',
@@ -52,6 +80,11 @@ const chrome = spawn(
     '--no-sandbox',
     '--disable-gpu',
     '--disable-dev-shm-usage',
+    // Lets the page load ES modules straight from disk. Module scripts are
+    // subject to CORS even on file://, and this harness has to run the real
+    // built entry point (with its relative dynamic imports) rather than an
+    // inlined bundle, so the restriction has to be lifted for the check only.
+    '--allow-file-access-from-files',
     '--no-proxy-server',
     '--no-first-run',
     `--user-data-dir=${PROFILE}`,

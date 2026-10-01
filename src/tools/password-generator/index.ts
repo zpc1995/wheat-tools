@@ -1,16 +1,11 @@
-import { KeyRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { PasswordGeneratorTool } from './PasswordGeneratorTool';
-
-export const manifest: ToolManifest = {
-  id: 'password-generator',
-  name: '密码生成器',
-  description:
-    '用 crypto 生成随机密码或单词短语（拒绝采样消除取模偏差），以熵值衡量强度，支持批量生成。',
-  tags: ['密码', '随机', '熵'],
-  category: 'crypto',
-  icon: KeyRegular,
-  version: '0.1.0',
-};
-
-export default PasswordGeneratorTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { PasswordGeneratorTool as default } from './PasswordGeneratorTool';

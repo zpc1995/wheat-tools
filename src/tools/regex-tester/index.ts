@@ -1,16 +1,11 @@
-import { BracesRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { RegexTesterTool } from './RegexTesterTool';
-
-export const manifest: ToolManifest = {
-  id: 'regex-tester',
-  name: '正则测试',
-  description:
-    '实时匹配高亮、捕获组与命名分组查看、替换预览，并提示灾难性回溯风险。',
-  tags: ['正则', 'regex', '匹配'],
-  category: 'dev',
-  icon: BracesRegular,
-  version: '0.1.0',
-};
-
-export default RegexTesterTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { RegexTesterTool as default } from './RegexTesterTool';

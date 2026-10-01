@@ -1,16 +1,11 @@
-import { LinkRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { UrlCodecTool } from './UrlCodecTool';
-
-export const manifest: ToolManifest = {
-  id: 'url-codec',
-  name: 'URL 编解码',
-  description:
-    'URL 编码与解码，区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。',
-  tags: ['URL', '编码', '查询串'],
-  category: 'network',
-  icon: LinkRegular,
-  version: '0.1.0',
-};
-
-export default UrlCodecTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { UrlCodecTool as default } from './UrlCodecTool';

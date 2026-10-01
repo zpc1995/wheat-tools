@@ -17,6 +17,7 @@ import {
   Wrench24Filled,
 } from '@fluentui/react-icons';
 import { useHref } from 'react-router-dom';
+import { prefetchTool } from '../tools/registry';
 import { tools } from '../tools/registry';
 import { useUsage } from '../tools/usage';
 import type { RegisteredTool } from '../tools/types';
@@ -96,7 +97,14 @@ function ToolCard({ tool }: { tool: RegisteredTool }) {
         title={favorite ? '取消收藏' : '收藏'}
       />
 
-      <a className="wt-tool-card__link" href={href}>
+      <a
+        className="wt-tool-card__link"
+        href={href}
+        // Start fetching the tool's chunk as soon as the pointer or keyboard
+        // focus arrives, so opening it usually needs no loading state.
+        onMouseEnter={() => prefetchTool(tool.id)}
+        onFocus={() => prefetchTool(tool.id)}
+      >
         <span className="wt-tool-card__icon" aria-hidden>
           {Icon ? <Icon /> : <Wrench24Filled />}
         </span>

@@ -1,6 +1,8 @@
+import { Suspense, lazy, useMemo } from 'react';
 import { Button, Subtitle1, Text, makeStyles, tokens } from '@fluentui/react-components';
 import { Link, useNavigate } from 'react-router-dom';
 import { getTool } from '../tools/registry';
+import { ToolLoading } from './ToolLoading';
 
 const useStyles = makeStyles({
   titleRow: {
@@ -58,7 +60,11 @@ export function ToolPage({ toolId }: ToolPageProps) {
     );
   }
 
-  const { Component } = tool;
+  // `lazy` must receive a stable reference, otherwise React would treat a new
+  // component type as a different one on every render and remount the tool,
+  // discarding its state. `tool.load` is memoised per tool in the registry, and
+  // the cache here keys off the tool id.
+  const LazyTool = useMemo(() => lazy(async () => ({ default: await tool.load() })), [tool.id]);
 
   return (
     <div className="wt-page">
@@ -78,7 +84,12 @@ export function ToolPage({ toolId }: ToolPageProps) {
       </header>
 
       <div className={styles.body}>
-        <Component />
+        {/* The fallback is deliberately not a spinner: chunks are small and
+            often already prefetched, so a flash of spinner is worse than a
+            skeleton that matches the page shape. */}
+        <Suspense fallback={<ToolLoading name={tool.name} />}>
+          <LazyTool />
+        </Suspense>
       </div>
     </div>
   );

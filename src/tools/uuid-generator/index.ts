@@ -1,16 +1,11 @@
-import { KeyRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { UuidGeneratorTool } from './UuidGeneratorTool';
-
-export const manifest: ToolManifest = {
-  id: 'uuid-generator',
-  name: 'UUID 生成器',
-  description:
-    '进入即自动生成一个 v4 UUID，可一键重新生成，并保留本次进入后的全部历史记录。',
-  tags: ['UUID', 'GUID', '随机'],
-  category: 'dev',
-  icon: KeyRegular,
-  version: '0.1.0',
-};
-
-export default UuidGeneratorTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { UuidGeneratorTool as default } from './UuidGeneratorTool';

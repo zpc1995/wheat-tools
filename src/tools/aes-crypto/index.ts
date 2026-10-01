@@ -1,16 +1,11 @@
-import { LockClosedRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { AesCryptoTool } from './AesCryptoTool';
-
-export const manifest: ToolManifest = {
-  id: 'aes-crypto',
-  name: 'AES 加解密',
-  description:
-    'AES-256 对称加解密（GCM 含完整性校验），口令经 PBKDF2 派生，密文自带盐与 IV 便于日后解密，支持文件。',
-  tags: ['AES', '加密', '口令'],
-  category: 'crypto',
-  icon: LockClosedRegular,
-  version: '0.1.0',
-};
-
-export default AesCryptoTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { AesCryptoTool as default } from './AesCryptoTool';

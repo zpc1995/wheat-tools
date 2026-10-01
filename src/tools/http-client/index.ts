@@ -1,16 +1,11 @@
-import { GlobeRegular } from '@fluentui/react-icons';
-import type { ToolManifest } from '../types';
-import { HttpClientTool } from './HttpClientTool';
-
-export const manifest: ToolManifest = {
-  id: 'http-client',
-  name: 'HTTP 请求测试',
-  description:
-    '在浏览器里发送 HTTP 请求并查看响应；受 CORS 限制，失败时列出可能原因与排查方式而不是猜测，并可生成对照 curl 命令。',
-  tags: ['HTTP', 'API', '请求'],
-  category: 'network',
-  icon: GlobeRegular,
-  version: '0.1.0',
-};
-
-export default HttpClientTool;
+/**
+ * Lazy entry point for this tool.
+ *
+ * The manifest is a separate module so the registry can import every tool's
+ * metadata cheaply (a name, a description, one icon) without pulling in the
+ * implementation. The component below — and its dependencies — is only fetched
+ * when the user actually opens this tool, which is what keeps the initial
+ * bundle from growing with every tool added.
+ */
+export { manifest } from './manifest';
+export { HttpClientTool as default } from './HttpClientTool';

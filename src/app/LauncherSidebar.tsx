@@ -14,7 +14,7 @@ import {
 } from '@fluentui/react-icons';
 import { Link } from 'react-router-dom';
 import { ASSIGNABLE_CATEGORIES, categoryMeta, type ToolCategory } from '../tools/categories';
-import { tools } from '../tools/registry';
+import { prefetchTool, tools } from '../tools/registry';
 import { rankByUsage, useUsage, type UsageStats } from '../tools/usage';
 import type { RegisteredTool } from '../tools/types';
 
@@ -285,6 +285,9 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
               type="button"
               className={`${styles.item} ${active ? styles.itemActive : ''}`}
               onClick={() => onSelect(id)}
+              // Prefetch on hover/focus: the sidebar is the other main way in.
+              onMouseEnter={() => prefetchTool(id)}
+              onFocus={() => prefetchTool(id)}
               aria-current={active ? 'page' : undefined}
               title={tool.name}
             >
