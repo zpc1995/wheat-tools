@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 40 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 48 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 40 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 48 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 40 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 48 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -200,11 +200,17 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **罗马数字转换** | `roman-numeral` | 1–3999 双向转换与拆解展示。解码从严：`IIII`、`VX`、`IL` 一律拒绝并给出「它读作 N，标准写法是 X」的对照。 |
 | **Lorem ipsum** | `lorem-ipsum` | 段落/句子/单词三种粒度，随机源可种子化（同种子输出逐字节相同）。中文占位用中文项目常见写法而非拉丁文对译。 |
 | **IBAN 验证器** | `iban-validator` | mod-97 校验、国家识别、长度核对与 BBAN 按注册表字段拆分（89 国）。**不校验账号是否真实存在**——那需要银行接口。 |
+| **命名风格转换** | `case-converter` | 13 种编程命名风格互转，附逐词切词展示（`getHTTPResponseCode` → `get/HTTP/Response/Code`）。切词边界与 ICU 字素簇对齐。 |
+| **文本转 Unicode** | `text-to-unicode` | 六种转义风格双向转换。核心是**码位与 UTF-16 码元的区别**：`😀` 是一个码位、两个码元，孤立代理明确报错而不静默产出 `U+FFFD`。 |
+| **文本转二进制** | `text-to-binary` | 按 **UTF-8 字节**转 8 位二进制（中文 3 字节、emoji 4 字节），反向宽松解析并拒绝非 0/1 输入。 |
+| **北约音标字母表** | `nato-alphabet` | 文本 ↔ 读法双向。按 ICAO 官方拼写（`Alfa`、`Juliett`、`Xray`、`Whiskey`），数字把 ICAO 读法单列一栏并说明「读法不是另一套拼写」。无法映射的字符原样透传，**绝不编读音**。 |
+| **HTML 实体转义** | `html-entities` | WHATWG 全表 2125 个命名实体 + 数字实体。处理了 `&` 必须先替换、只解一层、未知实体原样保留等经典陷阱。 |
 
 ### 哈希与加密
 
 | 工具 | ID | 说明 |
 | --- | --- | --- |
+| **Basic 认证头** | `basic-auth` | 生成与解析 `Authorization: Basic`。**把 RFC 7617 的 charset 歧义写在界面上**——协议本身没定义 user-pass 的编码，charset 只在服务端 401 挑战里且只是建议，所以只能猜。 |
 | **HMAC 生成器** | `hmac-generator` | HMAC-SHA-1/256/384/512，密钥支持文本或 hex，输出 hex 与 Base64。对照 RFC 4231 与 RFC 2202 官方向量。 |
 | **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对。 |
 | **AES 加解密** | `aes-crypto` | AES-256-GCM（含完整性校验），口令经 PBKDF2 派生；密文自带盐与 IV，支持文件。 |
@@ -216,6 +222,8 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | --- | --- | --- |
 | **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
 | **URL 参数编辑器** | `url-params` | 按行编辑查询参数：保留重复键与顺序、区分无值参数与空值，可原样输出原始转义字节（签名 URL 必需）。 |
+| **IPv6 ULA 生成器** | `ipv6-ula` | RFC 4193 的 `fd00::/8` 全局 ID，支持纯随机与 §3.2.2 的 NTP+EUI-64 推导两种算法，输出符合 RFC 5952 的压缩形式。 |
+| **随机端口生成** | `random-port` | 按 IANA 区间（动态/注册/全部）生成随机端口。**明确不做端口探测**——浏览器无法发起任意 TCP/UDP 连接，本机占用无从得知，界面提示用 `ss -lntu` 自行核实。 |
 | **IPv4 子网计算器** | `ipv4-subnet` | CIDR 计算网络/广播/可用范围与地址类别，32 位二进制分色展示，支持子网划分。**`/31` 与 `/32` 按 RFC 3021 与主机路由处理**，通用公式在这两种前缀下是错的。 |
 | **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
 | **JWT 解码** | `jwt-decoder` | 查看 Header/Payload、时间声明与算法风险。**只解码不验签**，UI 明确说明解码成功不代表令牌可信。 |
@@ -356,6 +364,14 @@ export function MyTool() {
 | `node scripts/check-chmod-calculator.mjs` | Chmod：0..7777 穷举 + **CPython stat.filemode** + **真实 GNU coreutils** 三重比对 |
 | `node scripts/check-http-status-codes.mjs` | HTTP 状态码：**IANA 注册表** + Node 的 `http.STATUS_CODES` 两张表互相印证 |
 | `node scripts/check-ipv4-subnet.mjs` | IPv4 子网：独立位运算 oracle（105 万项比对）+ `/31`、`/32` 陷阱专门断言 |
+| `node scripts/check-case-converter.mjs` | 命名风格：独立分词实现 + **ICU `Intl.Segmenter`** + 仓库里 3000+ 真实标识符 |
+| `node scripts/check-text-to-unicode.mjs` | Unicode 转义：自写 UTF-8 编码器在**全部 111 万个合法码位**上与 `TextEncoder` 一致 |
+| `node scripts/check-text-to-binary.mjs` | 文本转二进制：`TextEncoder` 与 `TextDecoder({fatal:true})` 双向比对 |
+| `node scripts/check-nato-alphabet.mjs` | 北约字母表：ICAO 官方词表逐条比对 |
+| `node scripts/check-html-entities.mjs` | HTML 实体：**Chromium 自身的 HTML 解析器**逐条比对 2125 个命名实体 |
+| `node scripts/check-basic-auth.mjs` | Basic 认证：**RFC 7617 官方示例** + Base64 四路互验 |
+| `node scripts/check-random-port.mjs` | 随机端口：RFC 6335 区间表与全部 65536 个取值逐一比对 |
+| `node scripts/check-ipv6-ula.mjs` | IPv6 ULA：**RFC 5952** 规则 + Node 的 WHATWG URL 原生 IPv6 序列化 |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 
