@@ -7,7 +7,7 @@ import {
 } from '@fluentui/react-icons';
 import { useNavigate } from 'react-router-dom';
 import { useAppTheme } from './theme';
-import { WheatIcon } from './WheatIcon';
+import { BrandMark } from './BrandMark';
 
 const useStyles = makeStyles({
   title: {
@@ -42,9 +42,7 @@ export function AppHeader({ backTo }: AppHeaderProps) {
       )}
 
       <div className="wt-header__brand">
-        <span className="wt-header__mark">
-          <WheatIcon size={24} />
-        </span>
+        <BrandMark size={34} />
         <span className="wt-header__titles">
           <Text className={styles.title} size={400}>
             wheat tools

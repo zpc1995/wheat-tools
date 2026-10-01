@@ -52,20 +52,6 @@ body {
   min-width: 0;
 }
 
-/* Brand tile for the wheat mark. A neutral translucent surface that follows
-   the theme, so the green mark reads cleanly in both light and dark mode
-   instead of sitting on a second competing hue. */
-.wt-header__mark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  flex: none;
-  border: 1px solid var(--colorNeutralStroke2);
-  background-color: var(--colorNeutralBackground3);
-}
-
 .wt-header__titles {
   display: flex;
   flex-direction: column;

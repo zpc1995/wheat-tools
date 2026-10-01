@@ -152,6 +152,20 @@ Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-page
 站点发布在自定义 apex 域名上，从**根路径**提供服务，所以工作流把 `VITE_BASE` 设为
 `/`。`public/CNAME` 里的 `wheat.chat` 会被复制到构建产物根目录。
 
+##### 第 0 步（必做，否则后面全部无效）
+
+**先在仓库 Settings → Pages → Custom domain 填入 `wheat.chat` 并保存。**
+
+这一步不只是"登记"：GitHub Pages 依据请求的 `Host` 决定提供哪个站点。
+未登记时，即使把请求正确反代到 GitHub 的 IP，也会返回 **404**，而且
+HTTPS 证书只有 `*.github.io`（不含 `wheat.chat`），浏览器会直接报证书错误。
+（已实测：`Host: wheat.chat` 打到 `185.199.108.153` → `HTTP/2 404`，`server: GitHub.com`。）
+
+##### 方式一：直接改 DNS（最简单）
+
+**前提**：`wheat.chat` 当前指向阿里云 `<服务器地址>` 上的 nginx；若仍在用，
+请先确认可以接管，或在方式二里保留这台机器。
+
 在 DNS 服务商处为 `wheat.chat` 配置（apex 记录**必须**用 A/AAAA 或 ALIAS，不能用 CNAME）：
 
 | 类型 | 主机 | 值 |
@@ -166,11 +180,69 @@ Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-page
 | `AAAA`（可选） | `@` | `2606:50c0:8003::153` |
 | `CNAME`（可选） | `www` | `zpc1995.github.io` |
 
-> ⚠️ 顺序很重要：**先在仓库 Settings → Pages → Custom domain 里填 `wheat.chat` 并保存，
-> 再去配置 DNS**。反过来的话，别人可能抢注你的子域。
+> ⚠️ **顺序很重要**：先填自定义域名（第 0 步），再动 DNS。反过来的话，
+> 别人可能抢注你的子域。
 >
-> 另外注意：DNS 服务商常会给 apex 域名预设一条 A 记录，需要先删掉。
-> DNS 生效最长 24 小时；Github 签发 HTTPS 证书可能再需要几分钟到几小时。
+> 另外注意：DNS 服务商常会给 apex 域名预设一条 A 记录（你的域名现在就有），
+> 需要先删掉。DNS 生效最长 24 小时；GitHub 签发 HTTPS 证书可能再需要几分钟到几小时。
+
+##### 方式二：保留现有 nginx，做反向代理
+
+若想继续持有 `<服务器地址>`（例如那台机器还跑着别的东西），把 nginx 变成
+GitHub Pages 的反向代理。完整配置见
+[`deploy/nginx-wheat-chat.conf`](deploy/nginx-wheat-chat.conf)，核心只有几行：
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name wheat.chat;
+
+    ssl_certificate     /etc/nginx/ssl/wheat.chat.pem;
+    ssl_certificate_key /etc/nginx/ssl/wheat.chat.key;
+
+    # 上游证书是 *.github.io，所以 SNI 用 github.io
+    proxy_ssl_server_name on;
+    proxy_ssl_name github.io;
+
+    # 关键：Host 必须是 wheat.chat。用默认的 $proxy_host 会拿到 GitHub 首页或 404
+    proxy_set_header Host wheat.chat;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_redirect off;
+
+    # 变量 + resolver 才会在运行时解析（upstream 块是启动时解析）
+    set $github_upstream "185.199.108.153";
+    resolver 223.5.5.5 valid=300s;
+
+    location / {
+        proxy_pass https://$github_upstream/;
+    }
+
+    location /assets/ {
+        proxy_pass https://$github_upstream;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+几个容易踩的点：
+
+- **不要写 `proxy_pass https://wheat.chat`** —— nginx 解析 `wheat.chat` 会得到自己，
+  造成无限循环。要用 SNI 直连 GitHub 的 IP（即 `proxy_ssl_name github.io`）。
+- **`proxy_set_header Host wheat.chat` 不能省**。GitHub Pages 靠 Host 判断站点。
+- **变量形式的 `proxy_pass` 结尾必须带 `/`**（`https://$github_upstream/`），
+  否则路径拼接会出错；而 `location /assets/` 里反而**不能**带结尾斜杠，
+  否则会丢掉 `/assets/` 前缀。
+- 证书需要你自己签（`certbot --webroot -d wheat.chat`，配置里已预留
+  `/.well-known/acme-challenge/`），或用阿里云免费证书；不能直接复用 GitHub 的证书。
+- 反代会让所有流量经过你的服务器：机器挂掉站点就不可用，也无法享受 GitHub CDN 的
+  就近加速。**如果只是想把域名指过来，方式一明显更省事。**
+
+> 实测确认：`ipwho.is` 对任意 Origin 都返回 `Access-Control-Allow-Origin: *`，
+> 所以换成 `https://wheat.chat` 后「外网 IP 查询」工具照常工作。
 
 #### 如果去掉自定义域名
 

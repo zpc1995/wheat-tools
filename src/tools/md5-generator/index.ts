@@ -1,4 +1,4 @@
-import { KeyRegular } from '@fluentui/react-icons';
+import { FingerprintRegular } from '@fluentui/react-icons';
 import type { ToolManifest } from '../types';
 import { Md5GeneratorTool } from './Md5GeneratorTool';
 
@@ -8,7 +8,7 @@ export const manifest: ToolManifest = {
   description:
     '计算 MD5 摘要（纯实现，不依赖后端），同时给出 SHA-1 / SHA-256，支持文件哈希与结果校验。',
   tags: ['MD5', '哈希', '校验'],
-  icon: KeyRegular,
+  icon: FingerprintRegular,
   version: '0.1.0',
 };
 
