@@ -1,6 +1,6 @@
-# 麦工具 · 瑞士军刀工具箱
+# wheat tools · 麦工具
 
-麦工具（Wheat Tools）是一个前端小工具集合。首页是总入口，每个小工具都是 `src/tools/` 下**独立目录**里的模块，
+wheat tools（麦工具）是一个前端小工具集合。首页是总入口，每个小工具都是 `src/tools/` 下**独立目录**里的模块，
 新增工具不需要改动入口或路由代码。
 
 技术栈：Vite + React 18 + TypeScript + [Fluent UI React v9](https://react.fluentui.dev/)

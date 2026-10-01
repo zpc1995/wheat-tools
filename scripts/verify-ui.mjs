@@ -281,6 +281,7 @@ try {
       theme: document.documentElement.dataset.theme,
       hasSearch: !!document.querySelector('input[type=search]'),
       headerTitle: document.querySelector('.wt-header__titles')?.innerText.replace(/\\n/g,' / '),
+      brandMarkIsSvg: !!document.querySelector('.wt-header__mark svg'),
     };
   })()`);
   await shot('01-launcher-light');

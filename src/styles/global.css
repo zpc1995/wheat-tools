@@ -52,9 +52,9 @@ body {
   min-width: 0;
 }
 
-/* Brand tile for the golden wheat mark. Deliberately a warm, near-neutral
-   surface rather than the brand blue, so the gold grains stay legible and
-   keep their warm hue in both light and dark themes. */
+/* Brand tile for the wheat mark. A neutral translucent surface that follows
+   the theme, so the green mark reads cleanly in both light and dark mode
+   instead of sitting on a second competing hue. */
 .wt-header__mark {
   display: grid;
   place-items: center;
@@ -62,13 +62,8 @@ body {
   height: 34px;
   border-radius: 9px;
   flex: none;
-  border: 1px solid rgba(224, 154, 10, 0.35);
-  background: radial-gradient(
-    120% 120% at 30% 20%,
-    rgba(255, 200, 61, 0.3) 0%,
-    rgba(255, 200, 61, 0.12) 60%,
-    rgba(224, 154, 10, 0.16) 100%
-  );
+  border: 1px solid var(--colorNeutralStroke2);
+  background-color: var(--colorNeutralBackground3);
 }
 
 .wt-header__titles {

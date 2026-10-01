@@ -47,10 +47,10 @@ export function AppHeader({ backTo }: AppHeaderProps) {
         </span>
         <span className="wt-header__titles">
           <Text className={styles.title} size={400}>
-            麦工具
+            wheat tools
           </Text>
           <Text className={styles.subtitle} size={200}>
-            瑞士军刀工具箱
+            麦工具
           </Text>
         </span>
       </div>
