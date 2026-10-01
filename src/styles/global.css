@@ -483,3 +483,32 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* Single-line monospace input used by the value-oriented tools
+   (timestamp, base64, md5, cron). Matches the code surfaces' typography. */
+.wt-inline-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: 6px;
+  background-color: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.wt-inline-input:focus-visible {
+  border-color: var(--colorStrokeFocus2);
+  box-shadow: 0 0 0 1px var(--colorStrokeFocus2);
+}
+
+.wt-inline-input::placeholder {
+  color: var(--colorNeutralForeground4);
+}
+
+.wt-inline-input:disabled {
+  background-color: var(--colorNeutralBackgroundDisabled);
+  color: var(--colorNeutralForegroundDisabled);
+}

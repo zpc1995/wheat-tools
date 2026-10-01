@@ -82,7 +82,8 @@ export function HomeLauncher() {
           <header className="wt-hero">
             <Title2>工具箱</Title2>
             <Text>
-              共 {tools.length} 个独立小工具，全部在浏览器本地运行，不上传任何数据。
+              共 {tools.length} 个独立小工具，除「外网 IP 查询」需请求第三方接口外，
+              其余全部在浏览器本地运行。
             </Text>
           </header>
 

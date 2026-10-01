@@ -45,11 +45,16 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build
-        # Project sites are served from /<repo>/, so the asset base must match
-        # or every JS/CSS request 404s. Prefer the base reported by Pages and
-        # fall back to the repository name.
+        # The site is published on the custom apex domain wheat.chat, which
+        # serves from the root, so the asset base must be "/" — a sub-path base
+        # here would make every JS/CSS request 404.
+        #
+        # Only change this to `steps.pages.outputs.base_path` (or
+        # `format('/{0}/', github.event.repository.name)`) if the custom domain
+        # is ever removed and the site falls back to
+        # https://<user>.github.io/<repo>/.
         env:
-          VITE_BASE: ${{ steps.pages.outputs.base_path || format('/{0}/', github.event.repository.name) }}
+          VITE_BASE: /
         run: pnpm build
 
       - name: Upload artifact

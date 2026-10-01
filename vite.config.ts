@@ -4,11 +4,13 @@ import react from '@vitejs/plugin-react';
 /**
  * Public base path for the built assets.
  *
- * GitHub Pages serves project sites from a sub-path
- * (`https://<user>.github.io/<repo>/`), so the default root base would make
- * every asset 404. The deploy workflow passes the real base in via `VITE_BASE`;
- * locally it stays `/` so `dev` and `preview` keep working at the root.
- * Routing is hash-based, so no server-side rewrite rules are needed.
+ * The site is served from a custom apex domain (`https://wheat.chat/`), so the
+ * correct base is the root. The deploy workflow still passes `VITE_BASE`
+ * explicitly, which keeps the build correct if the site is ever served from a
+ * GitHub Pages project sub-path (`https://<user>.github.io/<repo>/`) instead —
+ * a root base would make every asset 404 there.
+ *
+ * Routing is hash-based, so no server-side rewrite rules are needed either way.
  */
 const base = process.env.VITE_BASE ?? '/';
 
@@ -32,6 +34,8 @@ export default defineConfig({
       '127.0.0.1',
       '192.168.8.139',
       '100.64.0.4',
+      'wheat.chat',
+      '.wheat.chat',
       '.local',
       '.ts.net',
     ],

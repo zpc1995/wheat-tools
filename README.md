@@ -30,10 +30,18 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-| 工具 | 说明 |
-| --- | --- |
-| **JSON 格式化** (`json-formatter`) | 左侧粘贴 JSON，右侧渲染可展开/收起的语法高亮树；实时校验并在出错时给出行列位置；支持缩进切换、压缩、复制、下载、示例数据。 |
-| **UUID 生成器** (`uuid-generator`) | 进入即自动生成一个 v4 UUID，可一键重新生成；底部保留本次进入后的全部历史（可复制单条、收藏、导出 txt）。 |
+| 工具 | ID | 说明 |
+| --- | --- | --- |
+| **JSON 格式化** | `json-formatter` | 左侧粘贴 JSON，右侧渲染可展开/收起的语法高亮树；实时校验并给出行列位置；支持缩进切换、压缩、复制、下载。 |
+| **UUID 生成器** | `uuid-generator` | 进入即生成 v4 UUID，可重新生成；历史可复制、收藏、导出 txt。 |
+| **时间戳转换** | `timestamp-converter` | Unix 时间戳与日期互转，按位数自动识别秒/毫秒，给出 ISO、UTC、多时区、周数与相对时间。 |
+| **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对校验。 |
+| **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
+| **Base64 编解码** | `base64-converter` | 正确处理中文与 emoji，兼容 URL 安全字符集与无填充输入；解码可预览图片、格式化 JSON、下载二进制。 |
+| **外网 IP 查询** | `ip-lookup` | 查询出口公网 IP 及归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
+| **二维码生成器** | `qrcode-generator` | 网址/文本/WiFi/名片等生成二维码，可调纠错等级、尺寸、留白、配色，并提示低对比度与反色风险。 |
+
+> 除「外网 IP 查询」外，所有工具都在浏览器本地完成计算，不产生任何网络请求。
 
 ## 项目结构
 
@@ -102,18 +110,28 @@ export function MyTool() {
 - 组件私有样式用 Griffel 的 `makeStyles`；需要被测试或跨组件复用的稳定钩子才写进
   `global.css`（例如 `.wt-history__row`、`.wt-tool-card`）。
 
-## UI 自动化验证
+## 验证
 
-`scripts/verify-ui.mjs` 会用无头 Chromium 加载**生产构建**并跑一遍真实交互：
-总入口、搜索过滤、主题切换、JSON 树展开/收起、解析报错、UUID 自动生成与历史、
-格式切换、返回导航，并把截图与 JSON 报告写入 `.screenshots/`。
+所有检查都用 `node` 直接运行，不需要测试框架：
+
+| 脚本 | 作用 |
+| --- | --- |
+| `node scripts/check-md5.mjs` | MD5 正确性：RFC 1321 官方向量 + UTF-8 + 填充边界（对照 `node:crypto`） |
+| `node scripts/check-cron.mjs` | CRON 解析/调度：跨日、跨月、跨年、闰年 2/29、DOM/DOW 或语义、不可能表达式 |
+| `node scripts/check-base64.mjs` | Base64：UTF-8 往返、URL 安全字符集、无填充、内容识别 |
+| `node scripts/check-qrcode.mjs` | 二维码：用独立解码器（jsqr）反向解码生成的图片，断言载荷无损 |
+| `node scripts/check-tools.mjs` | 冒烟测试：在真实浏览器里逐个打开每个工具，断言渲染成功且无报错 |
+| `node scripts/verify-ui.mjs` | 深度交互：搜索、主题切换、JSON 树展开/收起/报错定位、UUID 生成与历史 |
 
 ```bash
-pnpm build && node scripts/verify-ui.mjs
+pnpm build
+node scripts/check-md5.mjs && node scripts/check-cron.mjs \
+  && node scripts/check-base64.mjs && node scripts/check-qrcode.mjs
+node scripts/check-tools.mjs && node scripts/verify-ui.mjs
 ```
 
-> 该脚本通过 `file://` 加载内联后的构建产物，因为本环境的浏览器无法完成 http 导航。
-> 应用本身生产环境使用 HashRouter（可部署到任意静态托管）；
+> 浏览器相关的脚本通过 `file://` 加载内联后的构建产物，因为本环境的浏览器无法完成
+> http 导航。应用本身生产环境使用 HashRouter（可部署到任意静态托管）；
 > `VITE_ROUTER=memory` 会换成内存路由，仅在受限环境下验证时使用。
 
 ## 部署
@@ -129,21 +147,37 @@ GitHub Pages 等）。由于使用 hash 路由，**无需任何服务端回退�
 **首次启用只需在仓库里设置一次**：Settings → Pages → Build and deployment →
 Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-pages` 分支。）
 
-启用后站点地址为 `https://<用户名>.github.io/<仓库名>/`。
+#### 自定义域名 `wheat.chat`
 
-#### 为什么需要 `VITE_BASE`
+站点发布在自定义 apex 域名上，从**根路径**提供服务，所以工作流把 `VITE_BASE` 设为
+`/`。`public/CNAME` 里的 `wheat.chat` 会被复制到构建产物根目录。
 
-Pages 的项目站点是从**子路径**提供服务的，而 Vite 默认按根路径 `/` 生成资源引用，
-直接部署会白屏（JS/CSS 全部 404）。所以 [vite.config.ts](vite.config.ts) 支持用
-`VITE_BASE` 覆盖 base：
+在 DNS 服务商处为 `wheat.chat` 配置（apex 记录**必须**用 A/AAAA 或 ALIAS，不能用 CNAME）：
 
-```bash
-pnpm build                          # base = /，用于本地 dev / preview
-VITE_BASE=/wheat-tools/ pnpm build  # base = /wheat-tools/，用于 Pages
-```
+| 类型 | 主机 | 值 |
+| --- | --- | --- |
+| `A` | `@` | `185.199.108.153` |
+| `A` | `@` | `185.199.109.153` |
+| `A` | `@` | `185.199.110.153` |
+| `A` | `@` | `185.199.111.153` |
+| `AAAA`（可选） | `@` | `2606:50c0:8000::153` |
+| `AAAA`（可选） | `@` | `2606:50c0:8001::153` |
+| `AAAA`（可选） | `@` | `2606:50c0:8002::153` |
+| `AAAA`（可选） | `@` | `2606:50c0:8003::153` |
+| `CNAME`（可选） | `www` | `zpc1995.github.io` |
 
-工作流已自动传入该变量，你不需要手动设置。若以后绑定了自定义域名（从根路径提供服务），
-把工作流里的 `VITE_BASE` 改成 `/` 即可。
+> ⚠️ 顺序很重要：**先在仓库 Settings → Pages → Custom domain 里填 `wheat.chat` 并保存，
+> 再去配置 DNS**。反过来的话，别人可能抢注你的子域。
+>
+> 另外注意：DNS 服务商常会给 apex 域名预设一条 A 记录，需要先删掉。
+> DNS 生效最长 24 小时；Github 签发 HTTPS 证书可能再需要几分钟到几小时。
+
+#### 如果去掉自定义域名
+
+站点会回落到 `https://<用户名>.github.io/<仓库名>/`，那是**子路径**，根路径 base 会导致
+JS/CSS 全部 404 白屏。此时把工作流里的 `VITE_BASE` 改成
+`${{ steps.pages.outputs.base_path || format('/{0}/', github.event.repository.name) }}`
+并删掉 `public/CNAME` 即可。
 
 ### 部署到其它平台
 
