@@ -4,15 +4,21 @@ import react from '@vitejs/plugin-react';
 /**
  * Public base path for the built assets.
  *
- * The site is served from a custom apex domain (`https://wheat.chat/`), so the
- * correct base is the root. The deploy workflow still passes `VITE_BASE`
- * explicitly, which keeps the build correct if the site is ever served from a
- * GitHub Pages project sub-path (`https://<user>.github.io/<repo>/`) instead —
- * a root base would make every asset 404 there.
+ * `./` (relative) rather than `/` on purpose: the very same build then works at
+ * any path depth, because each asset URL resolves against the document's own
+ * directory. That matters here because the site is reachable at two different
+ * paths at once:
+ *
+ *   - https://wheat.chat/                       (custom domain, root)
+ *   - https://zpc1995.github.io/wheat-tools/    (GitHub Pages project site)
+ *
+ * With an absolute `/` base the second one 404s every asset and renders blank —
+ * which is exactly what happened before this change. Overridable via
+ * `VITE_BASE` for the rare case a host needs an absolute prefix.
  *
  * Routing is hash-based, so no server-side rewrite rules are needed either way.
  */
-const base = process.env.VITE_BASE ?? '/';
+const base = process.env.VITE_BASE ?? './';
 
 export default defineConfig({
   base,
