@@ -187,7 +187,7 @@ HTTPS 证书只有 `*.github.io`（不含 `wheat.chat`），浏览器会直接�
 pnpm build
 
 # 2. 上传到自己的服务器（任一方式）
-rsync -av --delete dist/ root@<服务器地址>:/var/www/wheat.chat/
+rsync -av --delete dist/ <部署用户>@<服务器地址>:<网站根目录>/
 # 或用 scp / 对象存储 / 宝塔面板等
 
 # 3. 服务器上用 nginx 直接托管（配置见上面的文件）
@@ -195,15 +195,18 @@ rsync -av --delete dist/ root@<服务器地址>:/var/www/wheat.chat/
 
 要点：
 
-- **根目录指向 `dist/` 内容**（`root /var/www/wheat.chat;`），不是指向上级目录。
+- **根目录指向 `dist/` 内容**（`root /path/to/site;`），不是指向上级目录。
 - `/assets/` 可长期强缓存（文件名带内容哈希），`index.html` 必须不缓存。
 - 静态托管建议开启 gzip（GitHub Pages 是自动压缩的，自建服务器默认没开）。
-- 这样做的收益：**国内访问稳定 + 可继续用 GitHub 做版本管理与 CI**。
-  两个地址同时可用，互为备份。
+- 这样做的收益：**国内访问稳定 + 两个地址同时可用、互为备份**。
+  GitHub 仍然负责版本管理（以及 Pages 上的那个备份站点），只是网站内容由你手动上传。
+
+> 如果以后想要「推送后自动同步到服务器」，可以加一条 GitHub Actions 流水线做 `rsync`，
+> 需要额外配置部署专用密钥（`SSH_PRIVATE_KEY` 等 secrets）。当前仓库**未包含**该流水线。
 
 ##### 方式二：直接改 DNS 指向 GitHub（最省事，但国内访问不稳）
 
-**前提**：`wheat.chat` 当前指向阿里云 `<服务器地址>` 上的 nginx；若仍在用，
+**前提**：`wheat.chat` 当前指向一台已运行 nginx 的服务器；若那台机器仍在提供别的服务，
 请先确认可以接管，或改走方式一保留这台机器。
 
 在 DNS 服务商处为 `wheat.chat` 配置（apex 记录**必须**用 A/AAAA 或 ALIAS，不能用 CNAME）：
