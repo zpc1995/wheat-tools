@@ -80,30 +80,37 @@ export function AppLayout() {
 
   return (
     <SidebarContext.Provider value={sidebar}>
-      <AppHeader />
+      {/* Height-constrained flex column. This element is required: the app is
+          mounted inside FluentProvider, whose wrapper is `display: block`, so
+          without an explicit flex parent the `flex: 1 1 auto` on `.wt-body` had
+          no effect — the body grew to its full content height and both panes
+          scrolled with the document instead of on their own. */}
+      <div className="wt-app">
+        <AppHeader />
 
-      <div className="wt-body">
-        <aside
-          className={`wt-sidebar ${drawerOpen ? 'wt-sidebar--open' : ''}`}
-          aria-label="工具导航栏"
-        >
-          <div className="wt-sidebar__scroll">
-            <LauncherSidebar activeId={toolId} onSelect={openTool} />
-          </div>
-        </aside>
+        <div className="wt-body">
+          <aside
+            className={`wt-sidebar ${drawerOpen ? 'wt-sidebar--open' : ''}`}
+            aria-label="工具导航栏"
+          >
+            <div className="wt-sidebar__scroll">
+              <LauncherSidebar activeId={toolId} onSelect={openTool} />
+            </div>
+          </aside>
 
-        {drawerOpen && (
-          <button
-            type="button"
-            className="wt-scrim"
-            aria-label="关闭导航"
-            onClick={close}
-          />
-        )}
+          {drawerOpen && (
+            <button
+              type="button"
+              className="wt-scrim"
+              aria-label="关闭导航"
+              onClick={close}
+            />
+          )}
 
-        <main className="wt-content">
-          <Outlet />
-        </main>
+          <main className="wt-content">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </SidebarContext.Provider>
   );

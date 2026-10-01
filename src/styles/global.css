@@ -17,6 +17,10 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
+  /* The document itself must never scroll: `.wt-content` owns page scrolling.
+     Otherwise wheel input over the sidebar can also move the page underneath,
+     and a second scrollbar appears on the root. */
+  overflow: hidden;
 }
 
 body {
@@ -67,6 +71,16 @@ body {
   flex: 1 1 auto;
 }
 
+/* App root: the flex column that makes `.wt-body` height-constrained. Required
+   because the mount point (FluentProvider's wrapper) is `display: block`; see
+   AppLayout for the full explanation. */
+.wt-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .wt-body {
   display: flex;
   flex: 1 1 auto;
@@ -74,11 +88,17 @@ body {
 }
 
 /* The sidebar is a nav rail: it scrolls on its own so a long category list
-   never pushes the page content around. */
+   never pushes the page content around.
+
+   `overscroll-behavior: contain` is the part that makes the two panes truly
+   independent: without it, scrolling past the end of either pane chains to the
+   other one (and to the document), so flicking the nav list would move the tool
+   page underneath the cursor. */
 .wt-sidebar {
   flex: none;
   width: var(--wt-sidebar-width);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px 12px 24px;
   border-right: 1px solid var(--colorNeutralStroke2);
   background-color: var(--colorNeutralBackground2);
@@ -89,7 +109,9 @@ body {
   flex: 1 1 auto;
   min-width: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
+
 
 /* Narrow screens: the rail becomes an overlay drawer. */
 .wt-nav-toggle {

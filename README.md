@@ -30,9 +30,23 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 26 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 27 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
+
+### 布局与滚动
+
+侧边栏与内容区是**两个独立的滚动容器**：在任一侧滚动都不会带动另一侧，
+滚到尽头也不会传递给对方（`overscroll-behavior: contain`），文档本身不滚动。
+
+这一点最初是坏的——`.wt-body` 的父元素是 FluentProvider 的 `display: block`
+外层，因此 `flex: 1 1 auto` 从未生效，`flex-basis` 退化为内容高度，两个面板
+都长成了全高、跟着文档一起滚。修复方式是加一个高度受约束的 flex 列容器
+（`.wt-app`）。浏览器实测：文档 `scrollHeight` 等于视口高度，两个面板
+`scrollHeight > clientHeight` 且各自独立。
+
+工具分类**默认收起**（常用工具与我的收藏保持展开），顶部有「全部展开／全部收起」，
+展开状态会记在 localStorage 里。
 
 ### 编程工具
 
@@ -81,6 +95,7 @@ pnpm typecheck  # tsc -b
 | **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
 | **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
 | **JWT 解码** | `jwt-decoder` | 查看 Header/Payload、时间声明与算法风险。**只解码不验签**，UI 明确说明解码成功不代表令牌可信。 |
+| **HTTP 请求测试** | `http-client` | 发送 HTTP 请求并查看响应。受 CORS 限制：失败时列出可能原因与排查方法而不是猜测，并可生成对照 curl 命令。 |
 
 ### 图片与媒体
 
@@ -195,6 +210,7 @@ export function MyTool() {
 | `node scripts/check-cronconvert.mjs` | 定时转换：并集/交集差异标注、步长写法、Actions 5 段限制 |
 | `node scripts/check-image.mjs` | 图片压缩：等比缩放、Base64 体积估算与真实编码交叉核对 |
 | `node scripts/check-password.mjs` | 密码生成：**两万次抽样断言字符分布均匀**（取模偏差检测） |
+| `node scripts/check-http.mjs` | HTTP：URL 构建、请求头解析与禁止头、请求体校验、**错误解释不武断归因**、curl 生成 |
 | `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
 | `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |
 | `node scripts/check-tools.mjs` | 冒烟测试：在真实浏览器里逐个打开每个工具，断言渲染成功且无报错 |

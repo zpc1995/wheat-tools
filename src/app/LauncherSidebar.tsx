@@ -21,6 +21,49 @@ import type { RegisteredTool } from '../tools/types';
 /** How many favourites to show before the list gets unwieldy. */
 const MAX_FAVORITES = 20;
 
+/**
+ * Which sections the user has collapsed.
+ *
+ * The category groups start collapsed so the rail stays short, while the two
+ * personalised sections stay open because they are the shortcut the user came
+ * for. The choice is persisted, so expanding a group is remembered instead of
+ * being undone on the next visit.
+ */
+const COLLAPSED_KEY = 'wheat-tools:sidebar-collapsed:v1';
+
+/** Categories collapsed before the user has expressed a preference. */
+const DEFAULT_COLLAPSED = (): Set<ToolCategory> =>
+  new Set(ASSIGNABLE_CATEGORIES.map((category) => category.id));
+
+function readCollapsed(): Set<ToolCategory> {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY);
+    if (raw === null) return DEFAULT_COLLAPSED();
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_COLLAPSED();
+
+    // Only accept ids that still exist, so a removed category cannot keep a
+    // stale entry alive forever.
+    const valid = new Set<ToolCategory>(ASSIGNABLE_CATEGORIES.map((c) => c.id));
+    return new Set(
+      parsed.filter(
+        (item): item is ToolCategory => typeof item === 'string' && valid.has(item as ToolCategory),
+      ),
+    );
+  } catch {
+    return DEFAULT_COLLAPSED();
+  }
+}
+
+function writeCollapsed(value: Set<ToolCategory>): void {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...value]));
+  } catch {
+    // Best effort: the sidebar still works without persistence.
+  }
+}
+
 const useStyles = makeStyles({
   root: {
     display: 'flex',
@@ -124,6 +167,32 @@ const useStyles = makeStyles({
     flex: 'none',
     color: tokens.colorBrandForeground1,
   },
+  groupsHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    padding: '0 6px',
+    marginTop: '4px',
+  },
+  groupsToggle: {
+    border: 'none',
+    background: 'transparent',
+    color: tokens.colorBrandForeground1,
+    cursor: 'pointer',
+    font: 'inherit',
+    fontSize: '12px',
+    padding: '2px 4px',
+    borderRadius: '4px',
+    ':hover': {
+      backgroundColor: tokens.colorSubtleBackgroundHover,
+      textDecoration: 'underline',
+    },
+    ':focus-visible': {
+      outline: `2px solid ${tokens.colorStrokeFocus2}`,
+      outlineOffset: '-2px',
+    },
+  },
   itemLabel: {
     flex: '1 1 auto',
     minWidth: 0,
@@ -157,7 +226,13 @@ interface LauncherSidebarProps {
 export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
   const styles = useStyles();
   const { stats } = useUsage();
-  const [collapsed, setCollapsed] = useState<Set<ToolCategory>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<ToolCategory>>(readCollapsed);
+
+  // Collapse-all / expand-all, which is what people want once the list grows.
+  const allCollapsed = useMemo(
+    () => ASSIGNABLE_CATEGORIES.every((category) => collapsed.has(category.id)),
+    [collapsed],
+  );
 
   const byId = useMemo(() => {
     const map = new Map<string, RegisteredTool>();
@@ -188,8 +263,15 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
       const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      writeCollapsed(next);
       return next;
     });
+  };
+
+  const toggleAll = () => {
+    const next = allCollapsed ? new Set<ToolCategory>() : DEFAULT_COLLAPSED();
+    setCollapsed(next);
+    writeCollapsed(next);
   };
 
   const renderItems = (ids: string[], showCounts = false, showStar = false) => (
@@ -269,6 +351,19 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
         showStar: true,
         emptyHint: '点击工具卡片右上角的星标即可收藏。',
       })}
+
+      <div className={styles.groupsHead}>
+        <Caption1 style={{ color: tokens.colorNeutralForeground4 }}>
+          工具分类
+        </Caption1>
+        <button
+          type="button"
+          className={styles.groupsToggle}
+          onClick={toggleAll}
+        >
+          {allCollapsed ? '全部展开' : '全部收起'}
+        </button>
+      </div>
 
       {grouped.map(({ category, items }) =>
         renderSection(
