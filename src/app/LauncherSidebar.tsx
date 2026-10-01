@@ -9,8 +9,10 @@ import {
 import {
   ChevronDown16Regular,
   ChevronRight16Regular,
+  Grid16Filled,
   Star16Filled,
 } from '@fluentui/react-icons';
+import { Link } from 'react-router-dom';
 import { ASSIGNABLE_CATEGORIES, categoryMeta, type ToolCategory } from '../tools/categories';
 import { tools } from '../tools/registry';
 import { rankByUsage, useUsage, type UsageStats } from '../tools/usage';
@@ -88,6 +90,39 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1Selected,
     color: tokens.colorNeutralForeground1,
     fontWeight: 600,
+  },
+  /* Anchor variant of `item`, used by the always-present home entry. */
+  itemLink: {
+    textDecoration: 'none',
+  },
+  home: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    width: '100%',
+    padding: '8px',
+    marginBottom: '2px',
+    border: 'none',
+    borderRadius: '6px',
+    background: 'transparent',
+    color: tokens.colorNeutralForeground2,
+    cursor: 'pointer',
+    font: 'inherit',
+    fontSize: '13px',
+    textAlign: 'left',
+    textDecoration: 'none',
+    ':hover': {
+      backgroundColor: tokens.colorSubtleBackgroundHover,
+      color: tokens.colorNeutralForeground1,
+    },
+    ':focus-visible': {
+      outline: `2px solid ${tokens.colorStrokeFocus2}`,
+      outlineOffset: '-2px',
+    },
+  },
+  homeIcon: {
+    flex: 'none',
+    color: tokens.colorBrandForeground1,
   },
   itemLabel: {
     flex: '1 1 auto',
@@ -214,6 +249,17 @@ export function LauncherSidebar({ activeId, onSelect }: LauncherSidebarProps) {
 
   return (
     <nav className={styles.root} aria-label="工具导航">
+      {/* Always present: the brand in the header is clickable, but there was no
+          obvious way back once a tool was open and the list scrolled. */}
+      <Link
+        to="/"
+        className={`${styles.home} ${activeId ? '' : styles.itemActive}`}
+        aria-current={activeId ? undefined : 'page'}
+      >
+        <Grid16Filled className={styles.homeIcon} />
+        <span className={styles.itemLabel}>工具箱首页</span>
+      </Link>
+
       {renderSection('common', '常用工具', common, {
         showCounts: true,
         emptyHint: '打开工具后，这里会按使用次数排序显示。',
