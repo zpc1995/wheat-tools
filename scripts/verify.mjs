@@ -33,6 +33,7 @@ const BROWSER_CHECKS = new Set([
 /** Checks that need an external binary, and what happens without it. */
 const EXTERNAL_REQUIREMENTS = {
   'check-oncalendar.mjs': 'systemd-analyze（缺失时该检查会自行跳过交叉验证部分）',
+  'check-chmod-calculator.mjs': 'chmod 与 stat（GNU coreutils；缺失时该检查会自行跳过系统比对部分）',
 };
 
 const includeBrowser = process.argv.includes('--all');

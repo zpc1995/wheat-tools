@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 32 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 40 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 32 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 40 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 32 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 40 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -172,6 +172,9 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **正则速查表** | `regex-cheatsheet` | 字符类、锚点、量词、分组、标志与常用模式；**每条都由测试真正编译并匹配过**，并列明 JS 特有陷阱。 |
 | **单位换算** | `unit-converter` | 10 个类别互转；温度按仿射变换处理，存储区分 1000 与 1024，数值对照 NIST 定义值。 |
 | **HEX 查看器** | `hex-viewer` | 十六进制与文本查看、按文件头识别真实类型、熵与可打印占比统计、提取内嵌可读字符串。 |
+| **ULID 生成器** | `ulid-generator` | Crockford Base32 ULID，支持单调递增模式（同毫秒也严格按字符串有序）；随机部分溢出时按规范抛错而非回绕。 |
+| **Chmod 计算器** | `chmod-calculator` | 九个 rwx 位 + setuid/setgid/sticky 与八进制/符号互转，生成 `chmod` 命令。大小写 `s/S`、`t/T` 按有无执行位区分，与 `ls -l` 语义一致。 |
+| **HTTP 状态码** | `http-status-codes` | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
 
 ### 时间工具
 
@@ -194,11 +197,15 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **文本对比** | `text-diff` | 逐行对比，LCS 保证最小差异脚本；行内改动词级高亮，长文本自动折叠未变部分。 |
 | **文本处理** | `text-toolkit` | 30 余种操作：大小写、行排序/去重/洗牌、空白与标点、全半角、转义、统计，支持撤销。 |
 | **Markdown 预览** | `markdown-preview` | GFM 渲染与目录；**原始 HTML 不解析**，XSS 在结构上不可能发生。 |
+| **罗马数字转换** | `roman-numeral` | 1–3999 双向转换与拆解展示。解码从严：`IIII`、`VX`、`IL` 一律拒绝并给出「它读作 N，标准写法是 X」的对照。 |
+| **Lorem ipsum** | `lorem-ipsum` | 段落/句子/单词三种粒度，随机源可种子化（同种子输出逐字节相同）。中文占位用中文项目常见写法而非拉丁文对译。 |
+| **IBAN 验证器** | `iban-validator` | mod-97 校验、国家识别、长度核对与 BBAN 按注册表字段拆分（89 国）。**不校验账号是否真实存在**——那需要银行接口。 |
 
 ### 哈希与加密
 
 | 工具 | ID | 说明 |
 | --- | --- | --- |
+| **HMAC 生成器** | `hmac-generator` | HMAC-SHA-1/256/384/512，密钥支持文本或 hex，输出 hex 与 Base64。对照 RFC 4231 与 RFC 2202 官方向量。 |
 | **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对。 |
 | **AES 加解密** | `aes-crypto` | AES-256-GCM（含完整性校验），口令经 PBKDF2 派生；密文自带盐与 IV，支持文件。 |
 | **密码生成器** | `password-generator` | 用 crypto 生成随机密码或单词短语（拒绝采样消除取模偏差），以熵值衡量强度，支持批量。 |
@@ -209,6 +216,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | --- | --- | --- |
 | **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
 | **URL 参数编辑器** | `url-params` | 按行编辑查询参数：保留重复键与顺序、区分无值参数与空值，可原样输出原始转义字节（签名 URL 必需）。 |
+| **IPv4 子网计算器** | `ipv4-subnet` | CIDR 计算网络/广播/可用范围与地址类别，32 位二进制分色展示，支持子网划分。**`/31` 与 `/32` 按 RFC 3021 与主机路由处理**，通用公式在这两种前缀下是错的。 |
 | **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
 | **JWT 解码** | `jwt-decoder` | 查看 Header/Payload、时间声明与算法风险。**只解码不验签**，UI 明确说明解码成功不代表令牌可信。 |
 | **HTTP 请求测试** | `http-client` | 发送 HTTP 请求并查看响应。受 CORS 限制：失败时列出可能原因与排查方法而不是猜测，并可生成对照 curl 命令。 |
@@ -340,6 +348,14 @@ export function MyTool() {
 | `node scripts/check-usage.mjs` | 常用工具排序与上限（按打开次数，上限 10） |
 | `node scripts/check-stopwatch.mjs` | 秒表：格式化、暂停/继续、计次分段、随机操作序列的不变量 |
 | `node scripts/check-stopwatch-ui.mjs` | 秒表的浏览器行为：显示真的在走、计次渲染、快捷键、刷新后续走 |
+| `node scripts/check-ulid-generator.mjs` | ULID：Crockford 字母表、单调递增、溢出抛错、独立 BigInt 参照实现 |
+| `node scripts/check-hmac-generator.mjs` | HMAC：**RFC 4231 与 RFC 2202 官方向量** + node:crypto 交叉验证 |
+| `node scripts/check-roman-numeral.mjs` | 罗马数字：1..3999 穷举往返 + 数位表编码器 + 独立正则解码器 |
+| `node scripts/check-iban-validator.mjs` | IBAN：**SWIFT 注册表官方示例** + 两份独立 mod-97 实现 + 定义性质 |
+| `node scripts/check-lorem-ipsum.mjs` | Lorem ipsum：经典开头逐字、数量语义、同种子确定性（含反证） |
+| `node scripts/check-chmod-calculator.mjs` | Chmod：0..7777 穷举 + **CPython stat.filemode** + **真实 GNU coreutils** 三重比对 |
+| `node scripts/check-http-status-codes.mjs` | HTTP 状态码：**IANA 注册表** + Node 的 `http.STATUS_CODES` 两张表互相印证 |
+| `node scripts/check-ipv4-subnet.mjs` | IPv4 子网：独立位运算 oracle（105 万项比对）+ `/31`、`/32` 陷阱专门断言 |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 
