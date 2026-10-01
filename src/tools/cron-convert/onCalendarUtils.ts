@@ -30,6 +30,17 @@ export interface SysField {
   /** Original text, e.g. `00/5`. */
   raw: string;
   /**
+   * Offset counting back from the end of the month, from the `~N` form.
+   *
+   * systemd writes the day-of-month as `MM~N` (note the tilde replacing the
+   * usual dash) to mean "the Nth last day of that month": `*-02~03` is the third
+   * last day of February, which is the 26th in a 28-day year and the 27th in a
+   * leap year. `N` is bounded to 1..28 because the offset has to be valid for the
+   * shortest month — verified against `systemd-analyze`, which rejects `~29`
+   * even for a 31-day month.
+   */
+  fromEnd: number | null;
+  /**
    * Matching values, or `null` when the field is unrestricted (`*`).
    *
    * `null` is distinct from "every value listed" because cron distinguishes a
@@ -107,7 +118,7 @@ export function parseSysField(raw: string, spec: FieldSpec): SysField | { error:
   if (!text) return { error: `${spec.name}字段为空` };
 
   if (text === '*' || text === '*-*') {
-    return { raw: text, values: null, step: null };
+    return { raw: text, values: null, step: null, fromEnd: null };
   }
 
   const resolve = (token: string): number | null => {
@@ -130,6 +141,24 @@ export function parseSysField(raw: string, spec: FieldSpec): SysField | { error:
     }
     step = Number(stepText);
     if (step === 0) return { error: `${spec.name}字段的步长不能为 0` };
+  }
+
+  // The `~N` form: an offset from the end of the month rather than a fixed day.
+  //
+  // Note that any `/step` has already been stripped into `step` above, so the
+  // value reported here must be that one — reading it out of this match again
+  // silently dropped the step, because by now it is no longer in the text.
+  const tilde = /^~([0-9]+)$/.exec(body);
+  if (tilde) {
+    const offset = Number(tilde[1]);
+    // 28 is systemd's own cap: the offset must make sense in every month.
+    if (offset < 1 || offset > 28) {
+      return {
+        error: `${spec.name}字段的 ~${offset} 超出范围：倒数偏移必须在 1-28 之间` +
+          '（要对最短的 2 月也成立，systemd 就是这样限制的）',
+      };
+    }
+    return { raw: text, values: null, step, fromEnd: offset };
   }
 
   const values = new Set<number>();
@@ -191,6 +220,7 @@ export function parseSysField(raw: string, spec: FieldSpec): SysField | { error:
     raw: text,
     values: [...values].sort((a, b) => a - b),
     step,
+    fromEnd: null,
   };
 }
 
@@ -243,15 +273,24 @@ export function parseOnCalendar(input: string): OnCalendarParseResult {
   let dayText = '*';
 
   if (dateText) {
-    // Split on `-` but keep `..` ranges intact, since they do not contain `-`.
-    const segments = dateText.split('-');
-    if (segments.length !== 3) {
-      return {
-        ok: false,
-        error: `日期部分 "${dateText}" 应为 年-月-日 三段`,
-      };
+    // The `~` form replaces the month/day separator: `*-02~03` is year `*`,
+    // month `02`, day "third last". Handling it here keeps the rest of the
+    // parser unchanged, since `~N` only ever appears in the day position.
+    const tildeSplit = /^(.*?)-(.*?)~(.*)$/.exec(dateText);
+    if (tildeSplit) {
+      yearText = tildeSplit[1];
+      monthText = tildeSplit[2];
+      dayText = `~${tildeSplit[3]}`;
+    } else {
+      const segments = dateText.split('-');
+      if (segments.length !== 3) {
+        return {
+          ok: false,
+          error: `日期部分 "${dateText}" 应为 年-月-日 三段（或 年-月~倒数 形式）`,
+        };
+      }
+      [yearText, monthText, dayText] = segments;
     }
-    [yearText, monthText, dayText] = segments;
   }
 
   // Time: HH:MM:SS, with SS optional.
@@ -276,7 +315,8 @@ export function parseOnCalendar(input: string): OnCalendarParseResult {
   });
   if ('error' in weekday) return { ok: false, error: weekday.error };
 
-  const year = parseSysField(yearText, { name: '年', min: 1970, max: 9999 });
+  const YEAR_SPEC = { name: '年', min: 1970, max: 9999 };
+  const year = parseSysField(yearText, YEAR_SPEC);
   if ('error' in year) return { ok: false, error: year.error };
 
   const month = parseSysField(monthText, { name: '月', min: 1, max: 12 });
@@ -383,7 +423,28 @@ export function onCalendarToCron(input: string): OnCalendarToCronResult | { ok: 
   const weekday = toCronField(parsed.weekday, WEEKDAY);
 
   const weekdayRestricted = parsed.weekday.values !== null;
-  const dateRestricted = parsed.day.values !== null || parsed.month.values !== null;
+  const dateRestricted =
+    parsed.day.values !== null || parsed.month.values !== null || parsed.day.fromEnd !== null;
+
+  // cron has no "Nth from the end of the month" syntax at all, so this cannot be
+  // expressed faithfully. The day ranges over `29-N .. 32-N` because the target
+  // day is `length - N + 1` and month lengths are 28..31, which makes a range a
+  // principled (if imperfect) stand-in.
+  const fromEnd = parsed.day.fromEnd;
+  if (fromEnd !== null) {
+    impossible = true;
+    lossy = true;
+    const low = Math.max(1, 29 - fromEnd);
+    const high = 32 - fromEnd;
+    notes.push(
+      `日期使用了 ~${fromEnd}（该月倒数第 ${fromEnd} 天）。cron 没有「倒数第几天」的写法，` +
+        '因此无法等价表达——不同月份的天数不同（28/29/30/31），目标日期本身就会变。',
+    );
+    notes.push(
+      `cron 的近似写法是 0 0 ${low}-${high} * *：覆盖所有可能的目标日期（${low} 到 ${high} 号），` +
+        `但每个月会多触发几次，请确认业务能接受。`,
+    );
+  }
 
   if (weekdayRestricted && dateRestricted) {
     // The AND/OR mismatch. Refusing is the only honest option.
@@ -439,10 +500,16 @@ export function onCalendarToCron(input: string): OnCalendarToCronResult | { ok: 
   }
 
   const approximateCron = impossible
-    ? [minute, hour, day, month, weekday].join(' ')
+    ? [
+        minute,
+        hour,
+        fromEnd !== null ? `${Math.max(1, 29 - fromEnd)}-${32 - fromEnd}` : day,
+        month,
+        weekday,
+      ].join(' ')
     : null;
 
-  if (impossible && approximateCron) {
+  if (impossible && approximateCron && fromEnd === null) {
     notes.push(
       `并集写法为 ${approximateCron}：在每次「星期满足」以及每次「日期满足」时都会触发，次数更多。`,
     );

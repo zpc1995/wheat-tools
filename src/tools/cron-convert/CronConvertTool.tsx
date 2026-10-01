@@ -3,6 +3,8 @@ import {
   Badge,
   Button,
   Caption1,
+  Dropdown,
+  Option,
   Divider,
   MessageBar,
   MessageBarBody,
@@ -35,6 +37,12 @@ import {
   analyseWorkflow,
   type WorkflowAnalysis,
 } from './actionsUtils';
+import {
+  CRONTAB_SAMPLES,
+  parseCrontab,
+  type CrontabAnalysis,
+  type CrontabDialect,
+} from './crontabUtils';
 import {
   CRON_CONVERT_SAMPLES,
   parseCron,
@@ -123,12 +131,14 @@ export function CronConvertTool() {
   const toasterId = useId('cronc-toaster');
   const { dispatchToast } = useToastController(toasterId);
 
-  type Direction = 'cron-to' | 'oncalendar-to-cron' | 'actions-to-cron';
+  type Direction = 'cron-to' | 'oncalendar-to-cron' | 'actions-to-cron' | 'crontab-parse';
   const [direction, setDirection] = useState<Direction>('cron-to');
   const [expression, setExpression] = useState('*/5 * * * *');
   /** Separate input for the reverse direction so switching does not clobber it. */
   const [onCalendar, setOnCalendar] = useState('Mon..Fri *-*-* 09:00:00');
   const [workflow, setWorkflow] = useState(WORKFLOW_SAMPLES[0].yaml);
+  const [crontab, setCrontab] = useState(CRONTAB_SAMPLES[0].text);
+  const [crontabDialect, setCrontabDialect] = useState<CrontabDialect>('auto');
   const [target, setTarget] = useState<Target>('systemd');
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -148,6 +158,10 @@ export function CronConvertTool() {
 
   const reverse = useMemo(() => onCalendarToCron(onCalendar), [onCalendar]);
   const actions = useMemo(() => analyseWorkflow(workflow), [workflow]);
+  const parsedCrontab = useMemo(
+    () => parseCrontab(crontab, { dialect: crontabDialect }),
+    [crontab, crontabDialect],
+  );
 
   const output: ConversionOutput | { error: string } = useMemo(() => {
     switch (target) {
@@ -198,6 +212,7 @@ export function CronConvertTool() {
             <Tab value="cron-to">cron → 其它格式</Tab>
             <Tab value="oncalendar-to-cron">systemd OnCalendar → cron</Tab>
             <Tab value="actions-to-cron">Actions workflow → 计划</Tab>
+            <Tab value="crontab-parse">crontab → 计划</Tab>
           </TabList>
           <span className={styles.spacer} />
           <Caption1 className={styles.hint}>
@@ -205,7 +220,9 @@ export function CronConvertTool() {
               ? 'cron 表达式转换为 systemd / Actions / crontab'
               : direction === 'oncalendar-to-cron'
                 ? '把 systemd 的 OnCalendar 翻译回 cron'
-                : '分析 workflow 里的定时计划（含 UTC 与本地时间对照）'}
+                : direction === 'actions-to-cron'
+                  ? '分析 workflow 里的定时计划（含 UTC 与本地时间对照）'
+                  : '解析 crontab 内容，逐个任务说明计划与注意事项'}
           </Caption1>
         </div>
 
@@ -214,6 +231,18 @@ export function CronConvertTool() {
             value={onCalendar}
             onChange={setOnCalendar}
             result={reverse}
+            copied={copied}
+            onCopy={copy}
+          />
+        )}
+
+        {direction === 'crontab-parse' && (
+          <CrontabSection
+            value={crontab}
+            onChange={setCrontab}
+            dialect={crontabDialect}
+            onDialectChange={setCrontabDialect}
+            result={parsedCrontab}
             copied={copied}
             onCopy={copy}
           />
@@ -854,6 +883,283 @@ function ActionsSection({
           与仓库所在地和你的本地时区都无关——所以上面每一条计划都同时列出了
           UTC 与本地时间。另外定时 workflow 会在仓库连续 60 天无活动后被自动停用，
           高负载时段的实际触发也可能延迟。
+        </MessageBarBody>
+      </MessageBar>
+    </>
+  );
+}
+
+/** The crontab parser panel. */
+function CrontabSection({
+  value,
+  onChange,
+  dialect,
+  onDialectChange,
+  result,
+  copied,
+  onCopy,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  dialect: CrontabDialect;
+  onDialectChange: (next: CrontabDialect) => void;
+  result: ReturnType<typeof parseCrontab>;
+  copied: string | null;
+  onCopy: (text: string, key: string) => Promise<void>;
+}) {
+  const styles = useStyles();
+  const ok = result.ok;
+  const analysis: CrontabAnalysis | null = ok ? result : null;
+
+  return (
+    <>
+      <section className="wt-surface" aria-label="crontab 内容">
+        <div className="wt-surface__header">
+          <Text size={300} weight="semibold">
+            crontab 内容
+          </Text>
+          {ok && (
+            <Badge appearance="tint" color="brand" size="small">
+              {analysis?.dialect === 'system-crontab' ? '系统 crontab' : '用户 crontab'}
+              {analysis?.dialectSource === 'inferred' ? '（自动判断）' : '（手动指定）'}
+            </Badge>
+          )}
+          <span className={styles.spacer} />
+          <Caption1 className={styles.hint}>格式</Caption1>
+          <Dropdown
+            style={{ minWidth: 160 }}
+            value={
+              dialect === 'auto'
+                ? '自动判断'
+                : dialect === 'user'
+                  ? '用户 crontab'
+                  : '系统 crontab（cron.d）'
+            }
+            selectedOptions={[dialect]}
+            onOptionSelect={(_, data) => onDialectChange(data.optionValue as CrontabDialect)}
+            aria-label="crontab 格式"
+          >
+            <Option value="auto" text="自动判断">
+              自动判断
+            </Option>
+            <Option value="user" text="用户 crontab">
+              用户 crontab
+            </Option>
+            <Option value="system" text="系统 crontab（cron.d）">
+              系统 crontab（cron.d）
+            </Option>
+          </Dropdown>
+        </div>
+        <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+          <div style={{ padding: '12px 14px', width: '100%' }}>
+            <textarea
+              className="wt-code-area"
+              style={{ minHeight: '150px' }}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={'# 注释\nPATH=/usr/bin\n30 2 * * * /opt/backup.sh\n'}
+              aria-label="crontab 内容"
+              spellCheck={false}
+            />
+          </div>
+          <div className={styles.presets}>
+            {CRONTAB_SAMPLES.map((sample) => (
+              <Tooltip
+                key={sample.label}
+                content={sample.note}
+                relationship="description"
+                withArrow
+              >
+                <Button
+                  appearance="secondary"
+                  size="small"
+                  onClick={() => onChange(sample.text)}
+                >
+                  {sample.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {!ok && (
+        <MessageBar intent="error">
+          <MessageBarBody>{(result as { error: string }).error}</MessageBarBody>
+        </MessageBar>
+      )}
+
+      {analysis && (
+        <>
+          {analysis.warnings.map((warning) => (
+            <MessageBar key={warning} intent="warning">
+              <MessageBarBody>
+                <Warning16Regular /> {warning}
+              </MessageBarBody>
+            </MessageBar>
+          ))}
+
+          {analysis.stats.jobs === 0 ? (
+            <MessageBar intent="info">
+              <MessageBarBody>
+                这份内容里没有任务，只有 {analysis.stats.envVars} 个环境变量和{' '}
+                {analysis.stats.comments} 条注释。
+              </MessageBarBody>
+            </MessageBar>
+          ) : (
+            analysis.jobs.map((job) => (
+              <section key={job.line} className="wt-surface" aria-label={`第 ${job.line} 行任务`}>
+                <div className="wt-surface__header">
+                  <Badge appearance="tint" color="informative" size="small">
+                    第 {job.line} 行
+                  </Badge>
+                  {job.parseable ? (
+                    <Text size={300} weight="semibold">
+                      {job.description}
+                    </Text>
+                  ) : (
+                    <Badge appearance="tint" color="danger" size="small">
+                      无法解析
+                    </Badge>
+                  )}
+                  <span className={styles.spacer} />
+                  {job.user && (
+                    <Badge appearance="tint" color="warning" size="small">
+                      用户 {job.user}
+                    </Badge>
+                  )}
+                  {job.parseable && (
+                    <Tooltip content="复制时间表达式" relationship="label" withArrow>
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={
+                          copied === `ct${job.line}` ? (
+                            <Checkmark16Regular />
+                          ) : (
+                            <Copy16Regular />
+                          )
+                        }
+                        onClick={() => void onCopy(job.schedule, `ct${job.line}`)}
+                        aria-label="复制时间表达式"
+                      />
+                    </Tooltip>
+                  )}
+                </div>
+
+                <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+                  <div className={styles.output}>{job.schedule}</div>
+
+                  {job.warnings.length > 0 && (
+                    <>
+                      <Divider />
+                      <div className={styles.notes}>
+                        {job.warnings.map((warning) => (
+                          <div key={warning} className={styles.note}>
+                            <Warning16Regular
+                              style={{
+                                flex: 'none',
+                                marginTop: 2,
+                                color: tokens.colorPaletteMarigoldForeground1,
+                              }}
+                            />
+                            <Caption1 className={styles.hint}>{warning}</Caption1>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {!job.parseable && (
+                    <>
+                      <Divider />
+                      <div className={styles.row}>
+                        <Caption1 style={{ color: tokens.colorPaletteRedForeground1 }}>
+                          {job.error}
+                        </Caption1>
+                      </div>
+                    </>
+                  )}
+
+                  <Divider />
+
+                  <div className={styles.stack}>
+                    <div className={styles.row}>
+                      <Caption1 className={styles.hint} style={{ width: 90 }}>
+                        命令
+                      </Caption1>
+                      <span className={`${styles.cell} ${styles.mono}`}>{job.command || '（空）'}</span>
+                    </div>
+                    {job.stdin && (
+                      <div className={styles.row}>
+                        <Caption1 className={styles.hint} style={{ width: 90 }}>
+                          标准输入
+                        </Caption1>
+                        <span className={`${styles.cell} ${styles.mono}`}>
+                          {job.stdin.join(' ⏎ ')}
+                        </span>
+                      </div>
+                    )}
+                    {job.nextRuns && (
+                      <div className={styles.row}>
+                        <Caption1 className={styles.hint} style={{ width: 90 }}>
+                          下次执行
+                        </Caption1>
+                        <span className={`${styles.cell} ${styles.mono}`}>
+                          {job.nextRuns.join(' · ')}
+                        </span>
+                      </div>
+                    )}
+                    {job.systemdNote && (
+                      <div className={styles.row}>
+                        <Caption1 className={styles.hint} style={{ width: 90 }}>
+                          systemd
+                        </Caption1>
+                        <Caption1 className={styles.cell}>{job.systemdNote}</Caption1>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            ))
+          )}
+
+          {analysis.env.length > 0 && (
+            <section className="wt-surface" aria-label="环境变量">
+              <div className="wt-surface__header">
+                <Text size={300} weight="semibold">
+                  环境变量
+                </Text>
+                <span className={styles.spacer} />
+                <Caption1 className={styles.hint}>
+                  作用于该行之后的所有任务
+                </Caption1>
+              </div>
+              <div className={`wt-surface__body ${styles.stack}`}>
+                {analysis.env.map((item) => (
+                  <div key={`${item.line}-${item.name}`} className={styles.row}>
+                    <Caption1 className={styles.hint} style={{ width: 60 }}>
+                      第 {item.line} 行
+                    </Caption1>
+                    <span className={`${styles.mono}`} style={{ width: 150 }}>
+                      {item.name}={item.value || '（空）'}
+                    </span>
+                    <Caption1 className={styles.cell}>{item.note ?? '—'}</Caption1>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      <MessageBar intent="info">
+        <MessageBarBody>
+          <MessageBarTitle>为什么用户与系统 crontab 必须分开看</MessageBarTitle>
+          两者的字段含义不同：<code>/etc/crontab</code> 与 <code>/etc/cron.d/</code> 里，
+          时间字段之后还有<strong>一个用户字段</strong>，普通用户 crontab 没有。
+          同一行文字在两种格式下的解释完全不同，因此这里把「格式」做成显式选项，
+          自动判断只作为默认值，并在有歧义时明确提示。
         </MessageBarBody>
       </MessageBar>
     </>

@@ -168,6 +168,35 @@ console.log('--- 转换：HH:MM/step 的语义说明 ---');
   check('并明确说明这一行为', r.notes.some((n) => /只在该小时内/.test(n)), true);
 }
 
+console.log('--- 月末倒数（~N 形式）---');
+{
+  // Verified against systemd: the tilde replaces the month/day separator and `N`
+  // counts back from the end of the month.
+  const r = M.parseOnCalendar('*-02~03 00:00');
+  check('~N 可解析', r.ok, true);
+  check('记录倒数偏移', r.parsed.day.fromEnd, 3);
+  check('原始文本保留', r.parsed.day.raw, '~03');
+}
+check('月为通配时也可用', M.parseOnCalendar('*-*~1 00:00').parsed.day.fromEnd, 1);
+check('可带步长', M.parseOnCalendar('Mon *-05~07/1 00:00').parsed.day.step, 1);
+check('偏移 0 被拒（systemd 也拒绝）', M.parseOnCalendar('*-02~0 00:00').ok, false);
+check('偏移 29 被拒（systemd 对任意月份都拒绝）', M.parseOnCalendar('*-01~29 00:00').ok, false);
+check('偏移 28 可用', M.parseOnCalendar('*-01~28 00:00').ok, true);
+check('错误信息解释 1-28 的由来', /1-28|2 月/.test(M.parseOnCalendar('*-02~29 00:00').error ?? ''), true);
+{
+  const r = M.onCalendarToCron('*-*~1 00:00');
+  check('倒数日标记为无法等价表达', r.impossible, true);
+  check('不生成正式 cron', r.cron, null);
+  check('给出区间近似', r.approximateCron, '0 0 28-31 * *');
+  check('说明各月天数不同', r.notes.some((n) => /天数|不同/.test(n)), true);
+  check('说明近似会多触发', r.notes.some((n) => /多触发/.test(n)), true);
+}
+{
+  // ~3 → the target day ranges over 26..29 across month lengths.
+  const r = M.onCalendarToCron('*-*~3 00:00');
+  check('倒数 3 的近似区间为 26-29', r.approximateCron, '0 0 26-29 * *');
+}
+
 console.log('--- 交叉验证：与 systemd-analyze 的实际触发时刻比对 ---');
 if (!hasSystemd) {
   console.log('SKIP  本机没有 systemd-analyze，无法做语义交叉验证');
@@ -242,6 +271,23 @@ if (!hasSystemd) {
     mismatches,
     0,
   );
+
+  // The tilde case must genuinely differ from its range approximation.
+  {
+    const expression = '*-*~1 00:00';
+    const systemdDates = systemdTimes(expression, 3);
+    const approx = M.onCalendarToCron(expression).approximateCron;
+    const parsedApprox = C.parseCron(approx);
+    const approxDates = parsedApprox.ok
+      ? C.nextRuns(parsedApprox.value, 3, new Date()).map((r) => r.date)
+      : [];
+    const differs = systemdDates.some(
+      (date, index) => !approxDates[index] || date.getTime() !== approxDates[index].getTime(),
+    );
+    check('~1 与其区间近似确实不同（因此拒绝是正确的）', differs, true);
+    console.log(`        systemd(~1): ${show(systemdDates).join(' | ')}`);
+    console.log(`        cron(28-31) : ${show(approxDates).join(' | ')}`);
+  }
 
   // The refused case must genuinely differ, otherwise refusing would be wrong.
   {
