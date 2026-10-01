@@ -427,9 +427,24 @@ export function greet(name: string) {
 [危险链接](javascript:alert('被阻止'))
 `;
 
-/** Sample used by the "HTML 注入" preset to show the defence in action. */
-export const XSS_SAMPLE = `<script>alert(1)</script>
-<img src=x onerror="alert(2)">
-<a href="javascript:alert(3)">点击我</a>
-[正常链接](https://wheat.chat)
+/**
+ * Sample used by the "HTML 注入" preset to show the defence in action.
+ *
+ * Covers both injection routes: raw HTML (rendered as inert text) and Markdown
+ * syntax with a dangerous scheme (rendered as text with a blocked-link notice).
+ */
+export const XSS_SAMPLE = `# 注入测试
+
+原始 HTML 一律按文本显示，不会解析：
+
+<script>alert('原始 script 不会执行')</script>
+<img src=x onerror="alert('onerror 不会执行')">
+
+Markdown 语法里的危险链接会被阻止：
+
+[用 javascript: 的链接](javascript:alert('被阻止'))
+
+[用 data: 的链接](data:text/html,<script>alert(1)</script>)
+
+[正常链接仍然可用](https://wheat.chat)
 `;
