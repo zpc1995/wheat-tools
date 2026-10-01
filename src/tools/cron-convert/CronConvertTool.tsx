@@ -27,6 +27,10 @@ import {
 } from '@fluentui/react-icons';
 import { copyText } from '../json-formatter/jsonUtils';
 import {
+  ONCALENDAR_SAMPLES,
+  onCalendarToCron,
+} from './onCalendarUtils';
+import {
   CRON_CONVERT_SAMPLES,
   parseCron,
   toCrontab,
@@ -55,6 +59,32 @@ const useStyles = makeStyles({
   },
   hint: {
     color: tokens.colorNeutralForeground3,
+  },
+  output: {
+    padding: '14px',
+    width: '100%',
+    fontFamily: "'Cascadia Code', 'Cascadia Mono', Consolas, monospace",
+    fontSize: '15px',
+    letterSpacing: '0.02em',
+    overflowWrap: 'anywhere',
+    userSelect: 'all',
+  },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '8px 14px',
+    width: '100%',
+  },
+  cell: {
+    flex: '1 1 0',
+    minWidth: 0,
+  },
+  mono: {
+    fontFamily: "'Cascadia Code', 'Cascadia Mono', Consolas, monospace",
+    fontSize: '13px',
+    overflowWrap: 'anywhere',
+    userSelect: 'all',
   },
   presets: {
     display: 'flex',
@@ -88,9 +118,12 @@ export function CronConvertTool() {
   const toasterId = useId('cronc-toaster');
   const { dispatchToast } = useToastController(toasterId);
 
+  const [direction, setDirection] = useState<'cron-to' | 'oncalendar-to-cron'>('cron-to');
   const [expression, setExpression] = useState('*/5 * * * *');
+  /** Separate input for the reverse direction so switching does not clobber it. */
+  const [onCalendar, setOnCalendar] = useState('Mon..Fri *-*-* 09:00:00');
   const [target, setTarget] = useState<Target>('systemd');
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const notify = useCallback(
     (message: string) => {
@@ -106,6 +139,8 @@ export function CronConvertTool() {
 
   const parsed = useMemo(() => parseCron(expression), [expression]);
 
+  const reverse = useMemo(() => onCalendarToCron(onCalendar), [onCalendar]);
+
   const output: ConversionOutput | { error: string } = useMemo(() => {
     switch (target) {
       case 'systemd':
@@ -119,23 +154,62 @@ export function CronConvertTool() {
     }
   }, [expression, target]);
 
-  const copy = useCallback(async () => {
-    if ('error' in output) return;
-    const ok = await copyText(output.code);
-    if (ok) {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-      notify('已复制');
-    } else {
-      notify('复制失败');
-    }
-  }, [output, notify]);
+  /**
+   * Copies text and flashes feedback on the control identified by `key`.
+   *
+   * Takes the text as an argument rather than reading `output` so the reverse
+   * panel can reuse it for its own result.
+   */
+  const copy = useCallback(
+    async (text: string, key: string) => {
+      const ok = await copyText(text);
+      if (ok) {
+        setCopied(key);
+        window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1400);
+        notify('已复制');
+      } else {
+        notify('复制失败');
+      }
+    },
+    [notify],
+  );
 
   return (
     <>
       <Toaster toasterId={toasterId} position="top-end" />
 
       <div className={styles.stack}>
+        <div className={styles.toolbar}>
+          <TabList
+            selectedValue={direction}
+            onTabSelect={(_, data) => {
+              setDirection(data.value as 'cron-to' | 'oncalendar-to-cron');
+              setCopied(null);
+            }}
+          >
+            <Tab value="cron-to">cron → 其它格式</Tab>
+            <Tab value="oncalendar-to-cron">systemd OnCalendar → cron</Tab>
+          </TabList>
+          <span className={styles.spacer} />
+          <Caption1 className={styles.hint}>
+            {direction === 'cron-to'
+              ? 'cron 表达式转换为 systemd / Actions / crontab'
+              : '把 systemd 的 OnCalendar 翻译回 cron'}
+          </Caption1>
+        </div>
+
+        {direction === 'oncalendar-to-cron' && (
+          <OnCalendarSection
+            value={onCalendar}
+            onChange={setOnCalendar}
+            result={reverse}
+            copied={copied}
+            onCopy={copy}
+          />
+        )}
+
+        {direction === 'cron-to' && (
+          <>
         <section className="wt-surface" aria-label="cron 表达式">
           <div className="wt-surface__header">
             <Clock16Regular />
@@ -226,8 +300,10 @@ export function CronConvertTool() {
               <Tooltip content="复制结果" relationship="label" withArrow>
                 <Button
                   appearance="subtle"
-                  icon={copied ? <Checkmark16Regular /> : <Copy16Regular />}
-                  onClick={() => void copy()}
+                  icon={copied === 'cron' ? <Checkmark16Regular /> : <Copy16Regular />}
+                  onClick={() =>
+                    void copy('error' in output ? '' : output.code, 'cron')
+                  }
                   aria-label="复制结果"
                 />
               </Tooltip>
@@ -333,8 +409,205 @@ export function CronConvertTool() {
           </section>
         )}
 
+        </>
+        )}
+
         <Divider />
       </div>
+    </>
+  );
+}
+
+/** The systemd OnCalendar → cron panel. */
+function OnCalendarSection({
+  value,
+  onChange,
+  result,
+  copied,
+  onCopy,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  result: ReturnType<typeof onCalendarToCron>;
+  copied: string | null;
+  onCopy: (text: string, key: string) => Promise<void>;
+}) {
+  const styles = useStyles();
+  const ok = result.ok;
+
+  return (
+    <>
+      <section className="wt-surface" aria-label="OnCalendar 输入">
+        <div className="wt-surface__header">
+          <Clock16Regular />
+          <Text size={300} weight="semibold">
+            systemd OnCalendar
+          </Text>
+          {ok ? (
+            <Badge appearance="tint" color="success" size="small">
+              语法有效
+            </Badge>
+          ) : (
+            <Badge appearance="tint" color="danger" size="small">
+              语法错误
+            </Badge>
+          )}
+          <span className={styles.spacer} />
+          <Caption1 className={styles.hint}>
+            形如 <code>Mon..Fri *-*-* 09:00:00</code>，也可用 hourly / daily 等关键字
+          </Caption1>
+        </div>
+        <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+          <div style={{ padding: '12px 14px', width: '100%' }}>
+            <input
+              className={`wt-inline-input ${styles.input}`}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder="Mon..Fri *-*-* 09:00:00"
+              aria-label="OnCalendar 表达式"
+              spellCheck={false}
+            />
+          </div>
+          <div className={styles.presets}>
+            {ONCALENDAR_SAMPLES.map((sample) => (
+              <Tooltip
+                key={sample.label}
+                content={sample.note}
+                relationship="description"
+                withArrow
+              >
+                <Button
+                  appearance="secondary"
+                  size="small"
+                  onClick={() => onChange(sample.expression)}
+                >
+                  {sample.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {!ok && (
+        <MessageBar intent="error">
+          <MessageBarBody>{result.error}</MessageBarBody>
+        </MessageBar>
+      )}
+
+      {ok && (
+        <>
+          {result.impossible && (
+            <MessageBar intent="warning">
+              <MessageBarBody>
+                <MessageBarTitle>
+                  <Warning16Regular /> cron 无法等价表达这个表达式
+                </MessageBarTitle>
+                这里不会给出「翻译结果」，因为不存在与它等价的 cron 表达式。
+                下方列出的是按 cron 自身语义（并集）写出来的近似版本，
+                触发次数会明显更多，请勿直接当作等价替换。
+              </MessageBarBody>
+            </MessageBar>
+          )}
+
+          <section className="wt-surface" aria-label="cron 结果">
+            <div className="wt-surface__header">
+              <Text size={300} weight="semibold">
+                cron 表达式
+              </Text>
+              {result.lossy && (
+                <Badge appearance="tint" color="warning" size="small">
+                  有语义差异
+                </Badge>
+              )}
+              <span className={styles.spacer} />
+              {result.cron && (
+                <Tooltip content="复制" relationship="label" withArrow>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    icon={copied === 'oc' ? <Checkmark16Regular /> : <Copy16Regular />}
+                    onClick={() => void onCopy(result.cron as string, 'oc')}
+                    aria-label="复制 cron"
+                  />
+                </Tooltip>
+              )}
+            </div>
+            <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+              <div className={styles.output}>
+                {result.cron ?? (
+                  <Caption1 className={styles.hint}>
+                    无等价 cron。近似写法：{result.approximateCron}
+                  </Caption1>
+                )}
+              </div>
+              {result.cronWithSeconds && (
+                <>
+                  <Divider />
+                  <div className={styles.row}>
+                    <Caption1 className={styles.hint} style={{ width: 110 }}>
+                      含秒的 6 段写法
+                    </Caption1>
+                    <span className={`${styles.cell} ${styles.mono}`}>
+                      {result.cronWithSeconds}
+                    </span>
+                    <Tooltip content="复制" relationship="label" withArrow>
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={
+                          copied === 'oc6' ? <Checkmark16Regular /> : <Copy16Regular />
+                        }
+                        onClick={() => void onCopy(result.cronWithSeconds as string, 'oc6')}
+                        aria-label="复制 6 段表达式"
+                      />
+                    </Tooltip>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          <section className="wt-surface" aria-label="注意事项">
+            <div className="wt-surface__header">
+              <Warning16Regular />
+              <Text size={300} weight="semibold">
+                转换说明
+              </Text>
+              <span className={styles.spacer} />
+              <Caption1 className={styles.hint}>{result.notes.length} 条</Caption1>
+            </div>
+            <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+              <div className={styles.notes}>
+                {result.notes.map((note) => (
+                  <div key={note} className={styles.note}>
+                    <Warning16Regular
+                      style={{
+                        flex: 'none',
+                        marginTop: 2,
+                        color: result.lossy
+                          ? tokens.colorPaletteMarigoldForeground1
+                          : tokens.colorPaletteGreenForeground1,
+                      }}
+                    />
+                    <Caption1 className={styles.hint}>{note}</Caption1>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      <MessageBar intent="info">
+        <MessageBarBody>
+          <MessageBarTitle>为什么有些表达式无法翻译</MessageBarTitle>
+          systemd 把「星期」与「日期」取<strong>交集</strong>，cron 取<strong>并集</strong>。
+          例如 <code>Mon..Fri *-*-01 09:00</code> 只在「1 号且是工作日」时触发，
+          而 cron 的 <code>0 9 1 * 1-5</code> 在每个工作日和每个 1 号都会触发。
+          这类表达式会被明确拒绝而不是给出一个看起来对的错误答案。
+        </MessageBarBody>
+      </MessageBar>
     </>
   );
 }

@@ -30,7 +30,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 27 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 28 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -86,7 +86,7 @@ src/tools/<id>/
 | **时间戳转换** | `timestamp-converter` | Unix 时间戳与日期互转，按位数自动识别秒/毫秒，给出 ISO、UTC、多时区、周数与相对时间。 |
 | **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
 | **在线时钟** | `online-clock` | 大字时钟、世界时间换算（自动处理夏令时与半小时时区）、可在刷新后继续的倒计时。 |
-| **定时表达式转换** | `cron-convert` | cron 转 systemd timer / GitHub Actions / crontab 与中文说明；日与星期的并集/交集等语义差异会明确标注。 |
+| **定时表达式转换** | `cron-convert` | 双向：cron 转 systemd timer / GitHub Actions / crontab 与中文说明，以及 systemd OnCalendar 反解回 cron；并集/交集等语义差异会明确标注或直接拒绝。 |
 
 ### 文本与格式
 
@@ -112,6 +112,7 @@ src/tools/<id>/
 | 工具 | ID | 说明 |
 | --- | --- | --- |
 | **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
+| **URL 参数编辑器** | `url-params` | 按行编辑查询参数：保留重复键与顺序、区分无值参数与空值，可原样输出原始转义字节（签名 URL 必需）。 |
 | **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
 | **JWT 解码** | `jwt-decoder` | 查看 Header/Payload、时间声明与算法风险。**只解码不验签**，UI 明确说明解码成功不代表令牌可信。 |
 | **HTTP 请求测试** | `http-client` | 发送 HTTP 请求并查看响应。受 CORS 限制：失败时列出可能原因与排查方法而不是猜测，并可生成对照 curl 命令。 |
@@ -230,6 +231,8 @@ export function MyTool() {
 | `node scripts/check-image.mjs` | 图片压缩：等比缩放、Base64 体积估算与真实编码交叉核对 |
 | `node scripts/check-password.mjs` | 密码生成：**两万次抽样断言字符分布均匀**（取模偏差检测） |
 | `node scripts/check-http.mjs` | HTTP：URL 构建、请求头解析与禁止头、请求体校验、**错误解释不武断归因**、curl 生成 |
+| `node scripts/check-urlparams.mjs` | URL 参数：重复键与顺序保留、无值/空值区分、原始字节保真、参数对比 |
+| `node scripts/check-oncalendar.mjs` | OnCalendar 反解：**与 systemd-analyze 的实际触发时刻逐次比对**（见下） |
 | `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
 | `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |
 | `node scripts/check-tools.mjs` | 冒烟测试：在真实浏览器里逐个打开每个工具，断言渲染成功且无报错 |
@@ -250,6 +253,16 @@ node scripts/check-comments.mjs && node scripts/check-registry.mjs
 > 这样被抓出来的——例如 `readableTextColor` 的三元分支写反、
 > UTC 偏移符号整体颠倒、YAML 别名炸弹在 `toJS()` 阶段抛异常导致转换中断、
 > 协议相对地址被误判为非法协议、JSON 转类型中根接口被命名为 `Root2`。
+>
+> `check-oncalendar.mjs` 用了权威实现做交叉验证：本机有
+> `systemd-analyze`，所以不是比对字符串，而是把 17 个表达式的
+> **真实触发时刻**逐次比对（systemd 报的时刻 vs 转成 cron 后求值器算出的时刻）。
+> 这条测试立刻抓出一个隐蔽 bug：cron 的 `a/b` 含义是「从 a 起每 b 直到字段上限」，
+> 我却把 `Mon..Fri` 输出成 `1/1` —— 那是周一到周日，悄悄放宽了计划。
+> 现在只在步进确实到达字段上限时才用 `a/b`，否则用区间或列举。
+> 同一测试还确认了 `HH:MM/step` 只在该小时内重复，以及
+> `Mon..Fri *-*-01` 确实是交集语义（systemd 下次触发在 12-01 周二），
+> 因此该表达式被明确拒绝而不是给出一个看起来对的错误答案。
 >
 > `check-registry.mjs` 补上的是验证盲区：注册表靠 glob 查找
 > `./<目录>/index.ts`，因此缺少该文件的工具目录会在应用里彻底消失，
