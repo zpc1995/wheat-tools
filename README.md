@@ -30,8 +30,9 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 16 个工具，按左侧导航的大类分组。导航里的「常用工具」按打开次数排序，
-「我的收藏」由卡片右上角的星标维护，两者都存在浏览器 localStorage。
+共 26 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
+右上角的星标维护，两者都存在浏览器 localStorage。
 
 ### 编程工具
 
@@ -40,6 +41,10 @@ pnpm typecheck  # tsc -b
 | **进制转换** | `number-base` | 2–36 进制互转。整数用 BigInt 精确换算（超过 2^53 不丢精度），小数用缩放整数运算而非浮点。 |
 | **正则测试** | `regex-tester` | 实时匹配高亮、捕获组与命名分组、替换预览；防零宽匹配死循环，并提示灾难性回溯风险。 |
 | **UUID 生成器** | `uuid-generator` | 进入即生成 v4 UUID，可重新生成；历史可复制、收藏、导出 txt。 |
+| **JSON 转类型** | `json-to-type` | 从一份或多份 JSON 样本生成 TypeScript 接口或 Go 结构体；多样本合并可推断可选字段，生成的 TS 经编译器校验。 |
+| **正则速查表** | `regex-cheatsheet` | 字符类、锚点、量词、分组、标志与常用模式；**每条都由测试真正编译并匹配过**，并列明 JS 特有陷阱。 |
+| **单位换算** | `unit-converter` | 10 个类别互转；温度按仿射变换处理，存储区分 1000 与 1024，数值对照 NIST 定义值。 |
+| **HEX 查看器** | `hex-viewer` | 十六进制与文本查看、按文件头识别真实类型、熵与可打印占比统计、提取内嵌可读字符串。 |
 
 ### 时间工具
 
@@ -48,6 +53,7 @@ pnpm typecheck  # tsc -b
 | **时间戳转换** | `timestamp-converter` | Unix 时间戳与日期互转，按位数自动识别秒/毫秒，给出 ISO、UTC、多时区、周数与相对时间。 |
 | **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
 | **在线时钟** | `online-clock` | 大字时钟、世界时间换算（自动处理夏令时与半小时时区）、可在刷新后继续的倒计时。 |
+| **定时表达式转换** | `cron-convert` | cron 转 systemd timer / GitHub Actions / crontab 与中文说明；日与星期的并集/交集等语义差异会明确标注。 |
 
 ### 文本与格式
 
@@ -55,8 +61,10 @@ pnpm typecheck  # tsc -b
 | --- | --- | --- |
 | **JSON 格式化** | `json-formatter` | 左侧粘贴 JSON，右侧渲染可展开/收起的语法高亮树；实时校验并给出行列位置。 |
 | **YAML 转 JSON** | `yaml-json` | 双向转换，重复键报错、自定义标签不求值、别名炸弹有上限；可查看结构树与统计。 |
-| **Markdown 预览** | `markdown-preview` | GFM 渲染与目录；**原始 HTML 不解析**，XSS 在结构上不可能发生。 |
 | **Base64 编解码** | `base64-converter` | 正确处理中文与 emoji，兼容 URL 安全字符集与无填充；解码可预览图片、下载二进制。 |
+| **文本对比** | `text-diff` | 逐行对比，LCS 保证最小差异脚本；行内改动词级高亮，长文本自动折叠未变部分。 |
+| **文本处理** | `text-toolkit` | 30 余种操作：大小写、行排序/去重/洗牌、空白与标点、全半角、转义、统计，支持撤销。 |
+| **Markdown 预览** | `markdown-preview` | GFM 渲染与目录；**原始 HTML 不解析**，XSS 在结构上不可能发生。 |
 
 ### 哈希与加密
 
@@ -64,6 +72,7 @@ pnpm typecheck  # tsc -b
 | --- | --- | --- |
 | **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对。 |
 | **AES 加解密** | `aes-crypto` | AES-256-GCM（含完整性校验），口令经 PBKDF2 派生；密文自带盐与 IV，支持文件。 |
+| **密码生成器** | `password-generator` | 用 crypto 生成随机密码或单词短语（拒绝采样消除取模偏差），以熵值衡量强度，支持批量。 |
 
 ### 网络工具
 
@@ -71,6 +80,7 @@ pnpm typecheck  # tsc -b
 | --- | --- | --- |
 | **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
 | **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
+| **JWT 解码** | `jwt-decoder` | 查看 Header/Payload、时间声明与算法风险。**只解码不验签**，UI 明确说明解码成功不代表令牌可信。 |
 
 ### 图片与媒体
 
@@ -78,6 +88,7 @@ pnpm typecheck  # tsc -b
 | --- | --- | --- |
 | **二维码生成器** | `qrcode-generator` | 可调纠错等级、尺寸、留白、配色，含 WiFi/名片模板，并提示低对比度与反色风险。 |
 | **颜色格式转换** | `color-converter` | HEX/RGB/HSL/HSV/CMYK 互转，带透明度预览、WCAG 对比度评级与色阶。 |
+| **图片压缩** | `image-tool` | 本地压缩与缩放（JPEG/WebP/PNG），体积对比，转 Base64 data URL 与嵌入代码。 |
 
 > 除「外网 IP 查询」外，所有工具都在浏览器本地完成计算，不产生任何网络请求。
 > 「AES 加解密」与「Markdown 预览」的实现里额外说明了各自的安全边界与取舍。
@@ -175,6 +186,17 @@ export function MyTool() {
 | `node scripts/check-yaml.mjs` | YAML：重复键、自定义标签不求值、别名炸弹、原型污染、往返一致 |
 | `node scripts/check-markdown.mjs` | Markdown：协议白名单、扫描源码断言无 `dangerouslySetInnerHTML` |
 | `node scripts/check-aes.mjs` | AES：口令派生、GCM 篡改检测、随机盐/IV、信封解析（跑 Node WebCrypto） |
+| `node scripts/check-jwt.mjs` | JWT：base64url 细节、时间声明、算法提醒；断言实现中不存在验签调用 |
+| `node scripts/check-diff.mjs` | 文本对比：LCS 最小性、重建一致性、词级 diff 保真、折叠计数 |
+| `node scripts/check-cheatsheet.mjs` | 正则速查表：**逐条真正编译并匹配示例**，标志必要性 |
+| `node scripts/check-jsontype.mjs` | JSON 转类型：**生成的 TS 回灌 TypeScript 编译器**校验语法与引用 |
+| `node scripts/check-units.mjs` | 单位换算：对照 NIST 定义值，全类别两两往返自洽 |
+| `node scripts/check-hex.mjs` | HEX：行构建、特征表自洽、熵、字符串提取、多宽度解读 |
+| `node scripts/check-cronconvert.mjs` | 定时转换：并集/交集差异标注、步长写法、Actions 5 段限制 |
+| `node scripts/check-image.mjs` | 图片压缩：等比缩放、Base64 体积估算与真实编码交叉核对 |
+| `node scripts/check-password.mjs` | 密码生成：**两万次抽样断言字符分布均匀**（取模偏差检测） |
+| `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
+| `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |
 | `node scripts/check-tools.mjs` | 冒烟测试：在真实浏览器里逐个打开每个工具，断言渲染成功且无报错 |
 | `node scripts/verify-ui.mjs` | 深度交互：搜索、主题切换、JSON 树展开/收起/报错定位、UUID 生成与历史 |
 
@@ -184,13 +206,26 @@ for s in md5 cron base64 qrcode url base color clock regex yaml markdown aes; do
   node "scripts/check-$s.mjs" || exit 1
 done
 node scripts/check-tools.mjs && node scripts/verify-ui.mjs
+node scripts/check-comments.mjs && node scripts/check-registry.mjs
 ```
 
 > 这些检查刻意验证「正确性」而不只是「跑通」：MD5 用 RFC 1321 官方向量、
 > URL 编码对照平台实现、二维码用独立解码器反向解码、正则用超时守卫断言
-> 零宽匹配一定会返回。多个真实缺陷就是这样被抓出来的——例如
-> `readableTextColor` 的三元分支写反、UTC 偏移符号整体颠倒、
-> YAML 别名炸弹在 `toJS()` 阶段抛异常导致转换中断。
+> 零宽匹配一定会返回、生成的 TypeScript 回灌编译器校验。多个真实缺陷就是
+> 这样被抓出来的——例如 `readableTextColor` 的三元分支写反、
+> UTC 偏移符号整体颠倒、YAML 别名炸弹在 `toJS()` 阶段抛异常导致转换中断、
+> 协议相对地址被误判为非法协议、JSON 转类型中根接口被命名为 `Root2`。
+>
+> `check-registry.mjs` 补上的是验证盲区：注册表靠 glob 查找
+> `./<目录>/index.ts`，因此缺少该文件的工具目录会在应用里彻底消失，
+> 但它仍能通过类型检查，甚至能通过逐工具冒烟测试（那只遍历「已注册」的工具）。
+> `text-toolkit` 就这样一度成为死代码，用户永远打不开。
+>
+> `check-comments.mjs` 值得单独说明：在注释里写下 cron 的步长写法会直接
+> 终止该注释，随后是一连串指向无关行的报错，极难定位。这个坑先后踩过两次，
+> 于是改成机械检测——用 TypeScript 自带 scanner 分词（字符串、模板字符串、
+> 正则都不会误判），覆盖「跨行注释末行后仍跟代码」与「同一行残留第二个
+> 结束标记」两种特征，并以注入 bug 的对照实验验证过。
 
 > 浏览器相关的脚本通过 `file://` 加载内联后的构建产物，因为本环境的浏览器无法完成
 > http 导航。应用本身生产环境使用 HashRouter（可部署到任意静态托管）；
