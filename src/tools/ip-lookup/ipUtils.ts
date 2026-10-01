@@ -163,26 +163,35 @@ export async function lookupIp(
   }
 }
 
-/**
- * The visitor's own address, as actually observed on the wire.
- *
- * Cloudflare's trace endpoint is used for this because it reports the address
- * whose protocol the browser really connected with: over IPv6 it echoes the
- * public IPv6 address, over IPv4 the IPv4 one. It also sends
- * `Access-Control-Allow-Origin: *`.
- *
- * An earlier revision tried to infer IPv6 support by asking ipwho.is to look up
- * a *known* IPv6 address. That was wrong: it only proved the machine could
- * reach ipwho.is over IPv4 and read a record, saying nothing about the
- * visitor's own IPv6 connectivity. It reported "IPv6 reachable" on a host with
- * no global IPv6 route at all.
- */
-const TRACE_ENDPOINT = 'https://www.cloudflare.com/cdn-cgi/trace';
+export type IpFamily = 'IPv4' | 'IPv6';
 
 export interface OwnAddress {
   ip: string;
-  /** 'IPv6' when the address contains a colon, else 'IPv4'. */
-  family: 'IPv4' | 'IPv6';
+  family: IpFamily;
+  /** Which service answered — shown in the UI so results are traceable. */
+  source: string;
+}
+
+/** True for a dotted-quad IPv4 literal. */
+function isIpv4(value: string): boolean {
+  const parts = value.split('.');
+  return (
+    parts.length === 4 &&
+    parts.every(
+      (part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255,
+    )
+  );
+}
+
+/** True for anything containing a colon, which covers IPv6 in all notations. */
+function isIpv6(value: string): boolean {
+  return value.includes(':') && /^[0-9a-fA-F:.]+$/.test(value);
+}
+
+export function familyOf(value: string): IpFamily | null {
+  if (isIpv4(value)) return 'IPv4';
+  if (isIpv6(value)) return 'IPv6';
+  return null;
 }
 
 /** Extracts the `ip=` line from Cloudflare's `key=value` trace format. */
@@ -197,77 +206,159 @@ function parseTrace(text: string): string | null {
   return null;
 }
 
+interface AddressSource {
+  label: string;
+  family: IpFamily;
+  fetch: (signal: AbortSignal) => Promise<string | null>;
+}
+
 /**
- * Fetches the caller's own public address and its protocol.
+ * Address sources, tried in order.
  *
- * This is the only trustworthy way to learn which stack the visitor is on:
- * the answer comes from the connection that was actually made.
+ * More than one on purpose: a previous revision depended solely on
+ * `cloudflare.com`, so any network that cannot reach Cloudflare lost the tool
+ * entirely. Every entry below was verified to send
+ * `Access-Control-Allow-Origin: *`.
+ *
+ * `ident.me` is listed first because it is a plain dual-stack JSON endpoint:
+ * which of its hostnames answers tells us the visitor's own protocol without
+ * any inference. The dedicated single-stack hosts (`ipv4.` / `ipv6.`) only
+ * resolve on their respective stack, which makes them a direct connectivity
+ * test as well.
  */
-export async function lookupOwnAddress(timeoutMs = 8000): Promise<OwnAddress> {
+const ADDRESS_SOURCES: AddressSource[] = [
+  {
+    label: 'ident.me',
+    family: 'IPv4',
+    fetch: async (signal) => {
+      const res = await fetch('https://ipv4.ident.me/.json', {
+        signal,
+        cache: 'no-store',
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { address?: unknown };
+      return typeof body.address === 'string' ? body.address : null;
+    },
+  },
+  {
+    label: 'cloudflare.com',
+    family: 'IPv4',
+    fetch: async (signal) => {
+      const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace', {
+        signal,
+        cache: 'no-store',
+      });
+      if (!res.ok) return null;
+      return parseTrace(await res.text());
+    },
+  },
+  {
+    label: 'ipwho.is',
+    family: 'IPv4',
+    fetch: async (signal) => {
+      const res = await fetch('https://ipwho.is/?fields=ip', {
+        signal,
+        cache: 'no-store',
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { ip?: unknown };
+      return typeof body.ip === 'string' ? body.ip : null;
+    },
+  },
+];
+
+const IPV6_ADDRESS_SOURCE: AddressSource = {
+  label: 'ipv6.ident.me',
+  family: 'IPv6',
+  fetch: async (signal) => {
+    const res = await fetch('https://ipv6.ident.me/.json', {
+      signal,
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { address?: unknown };
+    return typeof body.address === 'string' ? body.address : null;
+  },
+};
+
+/**
+ * Tries each source until one yields a well-formed address of the expected
+ * family.
+ *
+ * When `want` is 'IPv6' the IPv6-only host is consulted first: it is the only
+ * way to learn an IPv6 address on a dual-stack machine, since a dual-stack
+ * hostname may legitimately answer over IPv4.
+ */
+async function resolveOwnAddress(
+  want: IpFamily,
+  timeoutMs: number,
+): Promise<OwnAddress | null> {
+  const sources =
+    want === 'IPv6'
+      ? [IPV6_ADDRESS_SOURCE, ...ADDRESS_SOURCES]
+      : ADDRESS_SOURCES;
+
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(TRACE_ENDPOINT, {
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      throw new IpLookupError(`IP 探测接口返回 HTTP ${response.status}`);
+    for (const source of sources) {
+      try {
+        const raw = await source.fetch(controller.signal);
+        if (!raw) continue;
+        const family = familyOf(raw);
+        if (!family) continue;
+        return { ip: raw, family, source: source.label };
+      } catch {
+        // Try the next source; total failure is handled by the caller.
+      }
     }
-    const ip = parseTrace(await response.text());
-    if (!ip) {
-      throw new IpLookupError('IP 探测接口返回的内容无法解析');
-    }
-    return { ip, family: ip.includes(':') ? 'IPv6' : 'IPv4' };
-  } catch (error) {
-    if (error instanceof IpLookupError) throw error;
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new IpLookupError('探测超时，请检查网络或稍后重试', true);
-    }
-    throw new IpLookupError('探测失败，可能是网络不可达或该接口被拦截');
+    return null;
   } finally {
     window.clearTimeout(timer);
   }
 }
 
+/**
+ * Fetches the caller's own address: IPv6 when the machine has it, else IPv4.
+ *
+ * IPv6 is attempted first so a dual-stack visitor sees their IPv6 address
+ * rather than whichever stack a dual-stack hostname happened to pick.
+ */
+export async function lookupOwnAddress(
+  timeoutMs = 9000,
+): Promise<OwnAddress> {
+  const ipv6 = await resolveOwnAddress('IPv6', timeoutMs);
+  if (ipv6) return ipv6;
+
+  const ipv4 = await resolveOwnAddress('IPv4', timeoutMs);
+  if (ipv4) return ipv4;
+
+  throw new IpLookupError(
+    '所有地址探测服务都不可用（ident.me / cloudflare.com / ipwho.is 均失败），可能是网络受限或这些域名被拦截',
+  );
+}
+
 export type Ipv6Status =
   | { state: 'checking' }
-  | { state: 'native' }
+  | { state: 'native'; ip: string }
   | { state: 'reachable'; address: string }
-  | { state: 'unknown' };
+  | { state: 'unavailable' };
 
 /**
- * Best-effort check for IPv6 reachability when the visitor arrived over IPv4.
+ * Checks IPv6 reachability for a visitor who arrived over IPv4.
  *
  * `ipv6.ident.me` publishes only an AAAA record, so a successful request proves
- * IPv6 works end to end and yields the visitor's IPv6 address.
- *
- * Caveat, stated rather than hidden: a failure is ambiguous. It means either
- * that IPv6 is unavailable, or that `ident.me` did not send CORS headers for
- * this origin. The CORS behaviour could not be verified while developing,
- * because the development host has no IPv6 route at all. The UI therefore
- * reports the failure as "无法确认", not as "你没有 IPv6".
+ * IPv6 works end to end and yields the visitor's IPv6 address. A failure means
+ * IPv6 is unavailable *or* the host sent no CORS header; both are reported as
+ * `unavailable` rather than claiming the visitor has no IPv6.
  */
-export async function probeIpv6(timeoutMs = 6000): Promise<Ipv6Status> {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch('https://ipv6.ident.me/.json', {
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    if (!response.ok) return { state: 'unknown' };
-    const body = (await response.json()) as { address?: unknown };
-    const address = typeof body.address === 'string' ? body.address : null;
-    if (!address || !address.includes(':')) return { state: 'unknown' };
-    return { state: 'reachable', address };
-  } catch {
-    return { state: 'unknown' };
-  } finally {
-    window.clearTimeout(timer);
+export async function probeIpv6(timeoutMs = 7000): Promise<Ipv6Status> {
+  const found = await resolveOwnAddress('IPv6', timeoutMs);
+  if (found && found.family === 'IPv6') {
+    return { state: 'reachable', address: found.ip };
   }
+  return { state: 'unavailable' };
 }
 
 /** Builds an OpenStreetMap link for the reported coordinates. */

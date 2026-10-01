@@ -35,6 +35,7 @@ import {
   probeIpv6,
   type IpDetails,
   type Ipv6Status,
+  type OwnAddress,
 } from './ipUtils';
 
 const useStyles = makeStyles({
@@ -117,9 +118,7 @@ export function IpLookupTool() {
   const [details, setDetails] = useState<IpDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [own, setOwn] = useState<{ ip: string; family: 'IPv4' | 'IPv6' } | null>(
-    null,
-  );
+  const [own, setOwn] = useState<OwnAddress | null>(null);
   const [ipv6, setIpv6] = useState<Ipv6Status>({ state: 'checking' });
   const [manual, setManual] = useState('');
   const [manualResult, setManualResult] = useState<IpDetails | null>(null);
@@ -168,7 +167,9 @@ export function IpLookupTool() {
       // Arriving over IPv6 already proves IPv6 works; over IPv4 it does not,
       // so the status starts as "checking" and the effect below probes.
       setIpv6(
-        address.family === 'IPv6' ? { state: 'native' } : { state: 'checking' },
+        address.family === 'IPv6'
+          ? { state: 'native', ip: address.ip }
+          : { state: 'checking' },
       );
 
       // Step 2: enrich that exact address with geography/ASN details.
@@ -177,7 +178,7 @@ export function IpLookupTool() {
       setDetails(null);
       setError(caught instanceof Error ? caught.message : String(caught));
       setLoading(false);
-      setIpv6({ state: 'unknown' });
+      setIpv6({ state: 'unavailable' });
       return;
     }
 
@@ -367,6 +368,7 @@ export function IpLookupTool() {
                     {isIpv6Primary
                       ? '地址取自实际连接：浏览器是经 IPv6 连出去的，所以这是你的公网 IPv6 地址。'
                       : '地址取自实际连接：浏览器是经 IPv4 连出去的，所以这是你的公网 IPv4 地址。'}
+                    {own ? `（来源：${own.source}）` : ''}
                   </Caption1>
                 </div>
 
