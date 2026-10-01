@@ -147,10 +147,21 @@ GitHub Pages 等）。由于使用 hash 路由，**无需任何服务端回退�
 **首次启用只需在仓库里设置一次**：Settings → Pages → Build and deployment →
 Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-pages` 分支。）
 
+#### 两个地址可同时访问
+
+构建使用**相对资源路径**（`base: './'`，见 [vite.config.ts](vite.config.ts)），
+因此同一份 `dist/` 在任何路径深度都能工作，两个地址同时可用：
+
+| 地址 | 路径 | 说明 |
+| --- | --- | --- |
+| `https://wheat.chat/` | 根路径 | 需完成下面的自定义域名配置 |
+| `https://zpc1995.github.io/wheat-tools/` | 子路径 | 开箱即用，无需额外配置 |
+
+用绝对 `base: '/'` 会让子路径站点白屏（所有资源请求 404），这也是相对路径的原因。
+
 #### 自定义域名 `wheat.chat`
 
-站点发布在自定义 apex 域名上，从**根路径**提供服务，所以工作流把 `VITE_BASE` 设为
-`/`。`public/CNAME` 里的 `wheat.chat` 会被复制到构建产物根目录。
+`public/CNAME` 里的 `wheat.chat` 会被复制到构建产物根目录。
 
 ##### 第 0 步（必做，否则后面全部无效）
 
@@ -161,10 +172,39 @@ Source 选择 **GitHub Actions**。（不需要选分支，也不会有 `gh-page
 HTTPS 证书只有 `*.github.io`（不含 `wheat.chat`），浏览器会直接报证书错误。
 （已实测：`Host: wheat.chat` 打到 `185.199.108.153` → `HTTP/2 404`，`server: GitHub.com`。）
 
-##### 方式一：直接改 DNS（最简单）
+##### 方式一：把构建产物放到自己服务器上（国内访问推荐）
+
+> ⚠️ **如果你在意国内访问，请优先看这一节。** GitHub Pages 在中国大陆的连通性并不可靠
+> （DNS 污染、IP 与 SNI 阻断、间歇性 443 超时都很常见）。无论是把 DNS 指向 GitHub，
+> 还是反向代理到 GitHub Pages，都**无法解决**这个问题——请求依然要出境。
+> 只有把静态文件放在自己的服务器上，流量才不出境。
+
+完整配置见
+[`deploy/nginx-wheat-chat-static.conf`](deploy/nginx-wheat-chat-static.conf)。流程：
+
+```bash
+# 1. 本地构建
+pnpm build
+
+# 2. 上传到自己的服务器（任一方式）
+rsync -av --delete dist/ root@<服务器地址>:/var/www/wheat.chat/
+# 或用 scp / 对象存储 / 宝塔面板等
+
+# 3. 服务器上用 nginx 直接托管（配置见上面的文件）
+```
+
+要点：
+
+- **根目录指向 `dist/` 内容**（`root /var/www/wheat.chat;`），不是指向上级目录。
+- `/assets/` 可长期强缓存（文件名带内容哈希），`index.html` 必须不缓存。
+- 静态托管建议开启 gzip（GitHub Pages 是自动压缩的，自建服务器默认没开）。
+- 这样做的收益：**国内访问稳定 + 可继续用 GitHub 做版本管理与 CI**。
+  两个地址同时可用，互为备份。
+
+##### 方式二：直接改 DNS 指向 GitHub（最省事，但国内访问不稳）
 
 **前提**：`wheat.chat` 当前指向阿里云 `<服务器地址>` 上的 nginx；若仍在用，
-请先确认可以接管，或在方式二里保留这台机器。
+请先确认可以接管，或改走方式一保留这台机器。
 
 在 DNS 服务商处为 `wheat.chat` 配置（apex 记录**必须**用 A/AAAA 或 ALIAS，不能用 CNAME）：
 
@@ -183,13 +223,17 @@ HTTPS 证书只有 `*.github.io`（不含 `wheat.chat`），浏览器会直接�
 > ⚠️ **顺序很重要**：先填自定义域名（第 0 步），再动 DNS。反过来的话，
 > 别人可能抢注你的子域。
 >
+> ⚠️ **国内访问提醒**：这条路线把域名指向 GitHub 的服务器，内容仍然从境外加载，
+> 国内访问的稳定性问题**不会因此改善**。若在意国内体验，请用方式一。
+>
 > 另外注意：DNS 服务商常会给 apex 域名预设一条 A 记录（你的域名现在就有），
 > 需要先删掉。DNS 生效最长 24 小时；GitHub 签发 HTTPS 证书可能再需要几分钟到几小时。
 
-##### 方式二：保留现有 nginx，做反向代理
+###### 变体：反向代理到 GitHub Pages（不推荐）
 
-若想继续持有 `<服务器地址>`（例如那台机器还跑着别的东西），把 nginx 变成
-GitHub Pages 的反向代理。完整配置见
+如果出于某种原因必须保留 GitHub Pages 作为内容源，可以反代过去：
+
+完整配置见
 [`deploy/nginx-wheat-chat.conf`](deploy/nginx-wheat-chat.conf)，核心只有几行：
 
 ```nginx
