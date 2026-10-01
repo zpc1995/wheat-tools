@@ -314,7 +314,7 @@ export function HexViewerTool() {
           <>
             <section className="wt-surface" aria-label="文件识别">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   文件识别
                 </Text>
                 {detection ? (
@@ -355,7 +355,7 @@ export function HexViewerTool() {
 
             <section className="wt-surface" aria-label="字节统计">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   字节统计
                 </Text>
                 <span className={styles.spacer} />
@@ -548,7 +548,7 @@ export function HexViewerTool() {
             {widths && tab === 'dump' && (
               <section className="wt-surface" aria-label="数值解读">
                 <div className="wt-surface__header">
-                  <Text size={300} weight="semibold">
+                  <Text as="h2" size={300} weight="semibold">
                     按不同宽度解读（偏移 0x{(page * PAGE_SIZE).toString(16)}）
                   </Text>
                   <span className={styles.spacer} />

@@ -264,7 +264,7 @@ export function TextDiffTool() {
           <section className="wt-surface" aria-label="原文">
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 原文（before）
               </Text>
               {result.ok && result.stats.removed > 0 && (
@@ -288,7 +288,7 @@ export function TextDiffTool() {
           <section className="wt-surface" aria-label="新文">
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 新文（after）
               </Text>
               {result.ok && result.stats.added > 0 && (
@@ -320,7 +320,7 @@ export function TextDiffTool() {
           <>
             <section className="wt-surface" aria-label="差异统计">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   差异统计
                 </Text>
                 <span className={styles.spacer} />
@@ -350,7 +350,7 @@ export function TextDiffTool() {
             <section className="wt-surface" aria-label="差异预览">
               <div className="wt-surface__header">
                 <TextBulletListSquare16Regular />
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   差异预览
                 </Text>
                 <span className={styles.spacer} />

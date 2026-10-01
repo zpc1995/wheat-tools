@@ -50,7 +50,7 @@ export function ToolPage({ toolId }: ToolPageProps) {
     return (
       <div className="wt-page">
         <div className={styles.missing}>
-          <Subtitle1>未找到工具 “{toolId}”</Subtitle1>
+          <Subtitle1 as="h1">未找到工具 “{toolId}”</Subtitle1>
           <Text>它可能已被移除，或链接有误。</Text>
           <Button appearance="primary" onClick={() => navigate('/')}>
             返回工具箱
@@ -70,7 +70,7 @@ export function ToolPage({ toolId }: ToolPageProps) {
     <div className="wt-page">
       <header className="wt-hero">
         <div className={styles.titleRow}>
-          <Subtitle1>{tool.name}</Subtitle1>
+          <Subtitle1 as="h1">{tool.name}</Subtitle1>
           {tool.version && (
             <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
               v{tool.version}

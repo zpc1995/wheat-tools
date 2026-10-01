@@ -732,7 +732,7 @@ export function HttpClientTool() {
             <section className="wt-surface" aria-label="响应">
               <div className="wt-surface__header">
                 <Globe16Regular />
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   响应
                 </Text>
                 <Badge
@@ -890,7 +890,7 @@ export function HttpClientTool() {
 
         <section className="wt-surface" aria-label="快捷请求">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               快捷请求
             </Text>
             <span className={styles.spacer} />
@@ -944,7 +944,7 @@ export function HttpClientTool() {
         {history.length > 0 && (
           <section className="wt-surface" aria-label="本次会话历史">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 本次会话历史
               </Text>
               <span className={styles.spacer} />
@@ -1001,7 +1001,7 @@ export function HttpClientTool() {
 
         <section className="wt-surface" aria-label="curl 命令">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               curl 对照命令
             </Text>
             <span className={styles.spacer} />

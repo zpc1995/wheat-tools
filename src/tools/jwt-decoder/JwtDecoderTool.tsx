@@ -212,7 +212,7 @@ export function JwtDecoderTool() {
 
         <section className="wt-surface" aria-label="JWT 输入">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               JWT
             </Text>
             <span className={styles.spacer} />
@@ -278,7 +278,7 @@ export function JwtDecoderTool() {
 
             <section className="wt-surface" aria-label="解码内容">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   解码内容
                 </Text>
                 <span className={styles.spacer} />
@@ -334,7 +334,7 @@ export function JwtDecoderTool() {
 
             <section className="wt-surface" aria-label="时间声明">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   时间声明（时间戳 → 可读时间）
                 </Text>
                 <span className={styles.spacer} />
@@ -372,7 +372,7 @@ export function JwtDecoderTool() {
             {annotations.length > 0 && (
               <section className="wt-surface" aria-label="声明说明">
                 <div className="wt-surface__header">
-                  <Text size={300} weight="semibold">
+                  <Text as="h2" size={300} weight="semibold">
                     标准声明含义
                   </Text>
                   <span className={styles.spacer} />
@@ -397,7 +397,7 @@ export function JwtDecoderTool() {
 
             <section className="wt-surface" aria-label="签名段">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   Signature
                 </Text>
                 <span className={styles.spacer} />

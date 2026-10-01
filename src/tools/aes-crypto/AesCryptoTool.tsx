@@ -362,7 +362,7 @@ export function AesCryptoTool() {
         <section className="wt-surface" aria-label="口令">
           <div className="wt-surface__header">
             <Key16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               口令
             </Text>
             <span className={styles.spacer} />
@@ -419,7 +419,7 @@ export function AesCryptoTool() {
         <div className="wt-split">
           <section className="wt-surface" aria-label={mode === 'encrypt' ? '明文' : '密文'}>
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {mode === 'encrypt' ? '明文' : '密文（信封格式）'}
               </Text>
               <span className={styles.spacer} />
@@ -467,7 +467,7 @@ export function AesCryptoTool() {
 
           <section className="wt-surface" aria-label={mode === 'encrypt' ? '密文' : '明文'}>
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {mode === 'encrypt' ? '密文（信封格式）' : '明文'}
               </Text>
               <span className={styles.spacer} />
@@ -547,7 +547,7 @@ export function AesCryptoTool() {
         {envelopeRows && (
           <section className="wt-surface" aria-label="信封信息">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 信封信息
               </Text>
               <span className={styles.spacer} />

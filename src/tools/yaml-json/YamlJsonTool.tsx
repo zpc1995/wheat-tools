@@ -280,7 +280,7 @@ export function YamlJsonTool() {
           <section className="wt-surface" aria-label={inputLabel}>
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {inputLabel}
               </Text>
               <span className={styles.spacer} />
@@ -307,7 +307,7 @@ export function YamlJsonTool() {
           <section className="wt-surface" aria-label={outputLabel}>
             <div className="wt-surface__header">
               <Table16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {outputLabel}
               </Text>
               <span className={styles.spacer} />
@@ -367,7 +367,7 @@ export function YamlJsonTool() {
         {stats && (
           <section className="wt-surface" aria-label="结构统计">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 结构统计
               </Text>
               <span className={styles.spacer} />
@@ -394,7 +394,7 @@ export function YamlJsonTool() {
 
         <section className="wt-surface" aria-label="易踩的坑">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               常见误解
             </Text>
             <span className={styles.spacer} />

@@ -365,7 +365,7 @@ export function ImageTool() {
           <>
             <section className="wt-surface" aria-label="处理结果">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   处理结果
                 </Text>
                 {savings.savedBytes > 0 ? (
@@ -413,7 +413,7 @@ export function ImageTool() {
 
             <section className="wt-surface" aria-label="体积统计">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   体积对比
                 </Text>
                 <span className={styles.spacer} />
@@ -448,7 +448,7 @@ export function ImageTool() {
 
             <section className="wt-surface" aria-label="嵌入片段">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   嵌入用法
                 </Text>
                 <span className={styles.spacer} />
@@ -488,7 +488,7 @@ export function ImageTool() {
         {image && (
           <section className="wt-surface" aria-label="压缩选项">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 压缩选项
               </Text>
               <span className={styles.spacer} />

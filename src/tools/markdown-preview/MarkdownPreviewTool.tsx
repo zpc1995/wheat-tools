@@ -218,7 +218,7 @@ export function MarkdownPreviewTool() {
           <section className="wt-surface" aria-label="Markdown 源码">
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 Markdown 源码
               </Text>
               <span className={styles.spacer} />
@@ -240,7 +240,7 @@ export function MarkdownPreviewTool() {
 
           <section className="wt-surface" aria-label="预览">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 预览
               </Text>
               <span className={styles.spacer} />
@@ -255,7 +255,7 @@ export function MarkdownPreviewTool() {
         {showToc && parsed.headings.length > 0 && (
           <section className="wt-surface" aria-label="目录">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 目录
               </Text>
               <span className={styles.spacer} />

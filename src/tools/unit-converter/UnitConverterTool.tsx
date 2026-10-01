@@ -24,6 +24,7 @@ import {
   Table16Regular,
 } from '@fluentui/react-icons';
 import { copyText } from '../json-formatter/jsonUtils';
+import { ListFilter, NoMatches, matchesQuery } from '../../components/ListFilter';
 import {
   CATEGORIES,
   QUICK_FACTS,
@@ -120,6 +121,7 @@ export function UnitConverterTool() {
   const [fromId, setFromId] = useState('m');
   const [toId, setToId] = useState('cm');
   const [raw, setRaw] = useState('1');
+  const [unitQuery, setUnitQuery] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
 
   const category = useMemo(() => findCategory(categoryId), [categoryId]);
@@ -189,6 +191,20 @@ export function UnitConverterTool() {
   const all = useMemo(
     () => (Number.isFinite(numeric) ? convertAll(numeric, fromId, category) : []),
     [numeric, fromId, category],
+  );
+
+  // The full unit list can run to 15 rows in a category, and the id, label and
+  // aliases are all worth searching — people look for "mi" as often as "英里".
+  const visibleUnits = useMemo(
+    () =>
+      all.filter((item) =>
+        matchesQuery(unitQuery, [
+          item.unit.label,
+          item.unit.id,
+          ...(item.unit.aliases ?? []),
+        ]),
+      ),
+    [all, unitQuery],
   );
 
   const fromUnit = category.units.find((unit) => unit.id === fromId);
@@ -268,7 +284,7 @@ export function UnitConverterTool() {
         <section className="wt-surface" aria-label="输入">
           <div className="wt-surface__header">
             <Ruler16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               输入
             </Text>
             <span className={styles.spacer} />
@@ -292,7 +308,7 @@ export function UnitConverterTool() {
 
         <section className="wt-surface" aria-label="换算结果">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               {toUnit?.label ?? '结果'}
             </Text>
             <span className={styles.spacer} />
@@ -335,14 +351,27 @@ export function UnitConverterTool() {
           <section className="wt-surface" aria-label="全部单位">
             <div className="wt-surface__header">
               <Table16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {category.label}的全部单位
               </Text>
               <span className={styles.spacer} />
               <Caption1 className={styles.hint}>点击任意行切换目标单位</Caption1>
             </div>
+
+            <ListFilter
+              value={unitQuery}
+              onChange={setUnitQuery}
+              shown={visibleUnits.length}
+              total={all.length}
+              label="搜索单位"
+              placeholder="搜索单位，例如 英里、km、ounce"
+            />
+
+            {visibleUnits.length === 0 ? (
+              <NoMatches query={unitQuery.trim()} hint="换一个关键词，或清空搜索。" />
+            ) : (
             <div className={`wt-surface__body ${styles.rows}`}>
-              {all.map((item) => (
+              {visibleUnits.map((item) => (
                 <div
                   key={item.unit.id}
                   className={`${styles.row} ${
@@ -376,12 +405,13 @@ export function UnitConverterTool() {
                 </div>
               ))}
             </div>
+            )}
           </section>
         )}
 
         <section className="wt-surface" aria-label="常用换算">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               常用换算速查
             </Text>
             <span className={styles.spacer} />

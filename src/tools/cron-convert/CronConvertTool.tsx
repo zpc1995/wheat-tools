@@ -263,7 +263,7 @@ export function CronConvertTool() {
         <section className="wt-surface" aria-label="cron 表达式">
           <div className="wt-surface__header">
             <Clock16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               cron 表达式
             </Text>
             {parsed.ok ? (
@@ -386,7 +386,7 @@ export function CronConvertTool() {
           <section className="wt-surface" aria-label="注意事项">
             <div className="wt-surface__header">
               <Warning16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 注意事项
               </Text>
               <span className={styles.spacer} />
@@ -416,7 +416,7 @@ export function CronConvertTool() {
         {parsed.ok && (
           <section className="wt-surface" aria-label="解析明细">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 各字段解析
               </Text>
               <span className={styles.spacer} />
@@ -490,7 +490,7 @@ function OnCalendarSection({
       <section className="wt-surface" aria-label="OnCalendar 输入">
         <div className="wt-surface__header">
           <Clock16Regular />
-          <Text size={300} weight="semibold">
+          <Text as="h2" size={300} weight="semibold">
             systemd OnCalendar
           </Text>
           {ok ? (
@@ -562,7 +562,7 @@ function OnCalendarSection({
 
           <section className="wt-surface" aria-label="cron 结果">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 cron 表达式
               </Text>
               {result.lossy && (
@@ -621,7 +621,7 @@ function OnCalendarSection({
           <section className="wt-surface" aria-label="注意事项">
             <div className="wt-surface__header">
               <Warning16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 转换说明
               </Text>
               <span className={styles.spacer} />
@@ -684,7 +684,7 @@ function ActionsSection({
     <>
       <section className="wt-surface" aria-label="workflow 内容">
         <div className="wt-surface__header">
-          <Text size={300} weight="semibold">
+          <Text as="h2" size={300} weight="semibold">
             workflow 内容
           </Text>
           {ok ? (
@@ -765,7 +765,7 @@ function ActionsSection({
               aria-label={`计划 ${schedule.index}`}
             >
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   计划 #{schedule.index}
                 </Text>
                 {schedule.ok ? (
@@ -915,7 +915,7 @@ function CrontabSection({
     <>
       <section className="wt-surface" aria-label="crontab 内容">
         <div className="wt-surface__header">
-          <Text size={300} weight="semibold">
+          <Text as="h2" size={300} weight="semibold">
             crontab 内容
           </Text>
           {ok && (
@@ -1014,7 +1014,7 @@ function CrontabSection({
                     第 {job.line} 行
                   </Badge>
                   {job.parseable ? (
-                    <Text size={300} weight="semibold">
+                    <Text as="h2" size={300} weight="semibold">
                       {job.description}
                     </Text>
                   ) : (
@@ -1127,7 +1127,7 @@ function CrontabSection({
           {analysis.env.length > 0 && (
             <section className="wt-surface" aria-label="环境变量">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   环境变量
                 </Text>
                 <span className={styles.spacer} />

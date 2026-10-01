@@ -53,6 +53,18 @@ src/tools/<id>/
 107 KB 的解析器。卡片与侧边栏在鼠标悬停/键盘聚焦时就会预取对应 chunk，
 所以正常点击时通常已经没有加载等待。
 
+### 工具内搜索与可访问性
+
+条目多的工具（正则速查表 65 条、单位换算 103 个、颜色名 28 个）带搜索框。
+匹配规则刻意保持可预期：忽略大小写、**多词是「与」而非「或」**、
+按字段分别匹配而不跨字段拼接（否则 `x` 与 `y` 会假命中 `xy`）。
+在速查表里搜索时会**跨全部 6 组**查找而不是只搜当前标签页——只搜可见标签页
+会把用户正要找的结果藏起来；结果行会标出所属分组。
+
+可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
+（共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
+避免与页面标题争抢文档大纲。全部 31 个工具通过自动审计。
+
 ### 布局与滚动
 
 侧边栏与内容区是**两个独立的滚动容器**：在任一侧滚动都不会带动另一侧，
@@ -88,7 +100,7 @@ src/tools/<id>/
 | **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
 | **在线时钟** | `online-clock` | 大字时钟、世界时间换算（自动处理夏令时与半小时时区）、可在刷新后继续的倒计时。 |
 | **日期计算器** | `date-calculator` | 两日期相差、日期加减、年龄与工作日推算；日历月按截断处理，跨夏令时也是「加一天」。 |
-| **定时表达式转换** | `cron-convert` | 三向：cron 转 systemd / Actions / crontab，systemd OnCalendar 反解回 cron，以及分析 Actions workflow 的定时计划（UTC 与本地时间对照）。语义差异会明确标注或直接拒绝。 |
+| **定时表达式转换** | `cron-convert` | 四向：cron 转 systemd / Actions / crontab，systemd OnCalendar 反解回 cron（含月末倒数 `~N`），分析 Actions workflow 的定时计划，以及解析 crontab 文件内容。语义差异会明确标注或直接拒绝。 |
 
 ### 文本与格式
 
@@ -239,6 +251,9 @@ export function MyTool() {
 | `node scripts/check-qrread.mjs` | 二维码识别：**用 qrcode 生成、jsQR 解码的真实往返**，以及各类载荷的分类与安全提示 |
 | `node scripts/check-schema.mjs` | JSON Schema：**用 ajv 拿样本回灌**，样本必须通过、破坏后必须被拒；并实测 format 的注解语义 |
 | `node scripts/check-date.mjs` | 日期：月末截断、闰年、夏令时、**difference 是 addMonths 的精确逆运算** |
+| `node scripts/check-crontab.mjs` | crontab：环境变量作用域、`%` 截断、cron.d 用户字段、`@reboot` 语义、方言歧义 |
+| `node scripts/check-filter.mjs` | 列表过滤：大小写、多词「与」、按字段匹配不跨字段误命中 |
+| `node scripts/check-a11y.mjs` | **可访问性审计**：用浏览器 AX 树判断可访问名，并真实按键走一遍 Tab 顺序 |
 | `node scripts/check-oncalendar.mjs` | OnCalendar 反解：**与 systemd-analyze 的实际触发时刻逐次比对**（见下） |
 | `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
 | `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |
@@ -252,6 +267,7 @@ for s in md5 cron base64 qrcode url base color clock regex yaml markdown aes; do
 done
 node scripts/check-tools.mjs && node scripts/verify-ui.mjs
 node scripts/check-comments.mjs && node scripts/check-registry.mjs
+node scripts/check-a11y.mjs
 ```
 
 > 这些检查刻意验证「正确性」而不只是「跑通」：MD5 用 RFC 1321 官方向量、
@@ -276,6 +292,16 @@ node scripts/check-comments.mjs && node scripts/check-registry.mjs
 > 同一测试还确认了 `HH:MM/step` 只在该小时内重复，以及
 > `Mon..Fri *-*-01` 确实是交集语义（systemd 下次触发在 12-01 周二），
 > 因此该表达式被明确拒绝而不是给出一个看起来对的错误答案。
+>
+> `check-a11y.mjs` 做了两件别的检查做不到的事。一是**可访问名取自浏览器
+> 的 AX 树**而不是手写推断——手写版把 Fluent 的 checkbox 全判成「无名字」，
+> 因为 `<input>` 没有文本内容，而浏览器能从关联的 `<label>` 算出名字；
+> 二是**真实按键走一遍 Tab 顺序**，而不是只看标记。
+> 它还查出了两处我自己实现里的假阴性：Fluent 的焦点环画在父元素上
+> （Dropdown 按钮自身 `outline: none`、父元素 `solid 2px`），
+> 以及 Markdown 预览把文档里的 `#` 渲染成第二个 `h1` 与页面标题冲突。
+> 另外它带有「产物比源码旧就报错」的守卫——我自己就先踩了一次：
+> 改完源码忘了重新构建，审计的是上一版产物，结论同时包含已修复和未修复的问题。
 >
 > `check-registry.mjs` 补上的是验证盲区：注册表靠 glob 查找
 > `./<目录>/index.ts`，因此缺少该文件的工具目录会在应用里彻底消失，

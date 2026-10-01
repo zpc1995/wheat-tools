@@ -305,7 +305,7 @@ export function PasswordGeneratorTool() {
         <section className="wt-surface" aria-label="生成结果">
           <div className="wt-surface__header">
             <Key16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               生成结果
             </Text>
             <Badge appearance="tint" color={verdict.tone} size="small">
@@ -396,7 +396,7 @@ export function PasswordGeneratorTool() {
         <section className="wt-surface" aria-label="生成选项">
           <div className="wt-surface__header">
             <Shield16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               选项
             </Text>
             <span className={styles.spacer} />

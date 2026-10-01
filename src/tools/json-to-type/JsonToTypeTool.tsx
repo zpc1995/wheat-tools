@@ -227,7 +227,7 @@ export function JsonToTypeTool() {
           <section className="wt-surface" aria-label="JSON 输入">
             <div className="wt-surface__header">
               <Braces16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 JSON 输入
               </Text>
               <span className={styles.spacer} />
@@ -252,7 +252,7 @@ export function JsonToTypeTool() {
           <section className="wt-surface" aria-label="生成结果">
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {language === 'ts' ? 'TypeScript' : 'Go'} 声明
               </Text>
               <span className={styles.spacer} />
@@ -314,7 +314,7 @@ export function JsonToTypeTool() {
 
         <section className="wt-surface" aria-label="生成选项">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               生成选项
             </Text>
             <span className={styles.spacer} />

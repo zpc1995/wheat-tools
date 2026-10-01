@@ -343,7 +343,7 @@ export function QrcodeReaderTool() {
           <div className="wt-split">
             <section className="wt-surface" aria-label="图片预览">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   图片
                 </Text>
                 <span className={styles.spacer} />
@@ -361,7 +361,7 @@ export function QrcodeReaderTool() {
             <section className="wt-surface" aria-label="识别结果">
               <div className="wt-surface__header">
                 <DocumentText16Regular />
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   识别结果
                 </Text>
                 {classification && (
@@ -482,7 +482,7 @@ export function QrcodeReaderTool() {
           <section className="wt-surface" aria-label="安全提示">
             <div className="wt-surface__header">
               <Warning16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 安全提示
               </Text>
               <span className={styles.spacer} />

@@ -149,6 +149,16 @@ interface RenderContext {
   /** Anchor ids assigned per heading, consumed in document order. */
   headingIds: string[];
   headingCursor: { value: number };
+  /**
+   * Levels to shift rendered headings down by.
+   *
+   * The preview is embedded in a page that already has its own `h1` (the tool
+   * name), so rendering the document's `#` heading as another `h1` gives the
+   * page two top-level headings and breaks outline navigation. Shifting by one
+   * keeps the document structure intact *relative to itself* while fitting
+   * under the page heading. Verified by the accessibility audit.
+   */
+  headingOffset: number;
 }
 
 /** Renders inline token children, which is where formatting actually lives. */
@@ -257,11 +267,14 @@ function block(tokens: Token[], context: RenderContext): ReactNode {
         context.headingCursor.value += 1;
         const children = inline(heading.tokens, context);
 
-        if (heading.depth === 1) return <h1 key={key} id={id}>{children}</h1>;
-        if (heading.depth === 2) return <h2 key={key} id={id}>{children}</h2>;
-        if (heading.depth === 3) return <h3 key={key} id={id}>{children}</h3>;
-        if (heading.depth === 4) return <h4 key={key} id={id}>{children}</h4>;
-        if (heading.depth === 5) return <h5 key={key} id={id}>{children}</h5>;
+        // Clamped at h6: HTML has no seventh level, and going deeper would be
+        // meaningless anyway.
+        const level = Math.min(6, heading.depth + context.headingOffset);
+        if (level === 1) return <h1 key={key} id={id}>{children}</h1>;
+        if (level === 2) return <h2 key={key} id={id}>{children}</h2>;
+        if (level === 3) return <h3 key={key} id={id}>{children}</h3>;
+        if (level === 4) return <h4 key={key} id={id}>{children}</h4>;
+        if (level === 5) return <h5 key={key} id={id}>{children}</h5>;
         return <h6 key={key} id={id}>{children}</h6>;
       }
 
@@ -374,10 +387,14 @@ function block(tokens: Token[], context: RenderContext): ReactNode {
 }
 
 /** Renders a parsed document to React nodes. */
-export function renderMarkdown(parsed: ParseResult): ReactNode {
+export function renderMarkdown(
+  parsed: ParseResult,
+  options: { headingOffset?: number } = {},
+): ReactNode {
   const context: RenderContext = {
     headingIds: parsed.headings.map((heading) => heading.id),
     headingCursor: { value: 0 },
+    headingOffset: options.headingOffset ?? 1,
   };
   return block(parsed.tokens, context);
 }

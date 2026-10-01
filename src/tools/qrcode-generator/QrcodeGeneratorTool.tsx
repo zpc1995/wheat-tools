@@ -248,7 +248,7 @@ export function QrcodeGeneratorTool() {
           <section className="wt-surface" aria-label="二维码内容">
             <div className="wt-surface__header">
               <QrCode20Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 二维码内容
               </Text>
               <span className={styles.spacer} />
@@ -281,7 +281,7 @@ export function QrcodeGeneratorTool() {
           <section className="wt-surface" aria-label="二维码预览">
             <div className="wt-surface__header">
               <Sparkle16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 预览
               </Text>
               {error && (
@@ -362,7 +362,7 @@ export function QrcodeGeneratorTool() {
         <div className={styles.stack}>
           <section className="wt-surface" aria-label="二维码选项">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 选项
               </Text>
             </div>
@@ -455,7 +455,7 @@ export function QrcodeGeneratorTool() {
 
           <section className="wt-surface" aria-label="常用模板">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 模板
               </Text>
               <span className={styles.spacer} />

@@ -212,7 +212,7 @@ export function JsonSchemaTool() {
           <section className="wt-surface" aria-label="JSON 样本">
             <div className="wt-surface__header">
               <Braces16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 JSON 样本
               </Text>
               <span className={styles.spacer} />
@@ -237,7 +237,7 @@ export function JsonSchemaTool() {
           <section className="wt-surface" aria-label="生成的 Schema">
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 JSON Schema
               </Text>
               <Badge appearance="tint" color="informative" size="small">
@@ -283,7 +283,7 @@ export function JsonSchemaTool() {
 
         <section className="wt-surface" aria-label="选项">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               选项
             </Text>
             <span className={styles.spacer} />
@@ -370,7 +370,7 @@ export function JsonSchemaTool() {
         <section className="wt-surface" aria-label="使用说明">
           <div className="wt-surface__header">
             <Warning16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               使用前需要知道的几点
             </Text>
             <span className={styles.spacer} />

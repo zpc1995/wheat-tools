@@ -341,7 +341,7 @@ export function JsonFormatterTool() {
           <div className="wt-surface__header">
             <div className={styles.panelTitle}>
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 输入
               </Text>
               {input.trim() && (
@@ -391,7 +391,7 @@ export function JsonFormatterTool() {
           <div className="wt-surface__header">
             <div className={styles.panelTitle}>
               <Wand16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 格式化结果
               </Text>
               {stats && (

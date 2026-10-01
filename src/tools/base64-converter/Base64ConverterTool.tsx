@@ -274,7 +274,7 @@ export function Base64ConverterTool() {
           <section className="wt-surface" aria-label={inputLabel}>
             <div className="wt-surface__header">
               <DocumentText16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {inputLabel}
               </Text>
             </div>
@@ -297,7 +297,7 @@ export function Base64ConverterTool() {
           <section className="wt-surface" aria-label={outputLabel}>
             <div className="wt-surface__header">
               {kind === 'image' ? <Image16Regular /> : <Wand16Regular />}
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {outputLabel}
               </Text>
               {mode === 'decode' && decoded?.ok && (

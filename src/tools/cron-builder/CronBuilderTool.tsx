@@ -215,7 +215,7 @@ export function CronBuilderTool() {
         <section className="wt-surface" aria-label="CRON 表达式">
           <div className="wt-surface__header">
             <CalendarClock16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               CRON 表达式
             </Text>
             {parsed.ok ? (
@@ -372,7 +372,7 @@ export function CronBuilderTool() {
         <section className="wt-surface" aria-label="常用模板">
           <div className="wt-surface__header">
             <Flash16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               常用模板
             </Text>
             <span className={styles.spacer} />
@@ -402,7 +402,7 @@ export function CronBuilderTool() {
           <section className="wt-surface" aria-label="接下来 8 次执行">
             <div className="wt-surface__header">
               <CalendarClock16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 接下来 8 次执行
               </Text>
               <span className={styles.spacer} />

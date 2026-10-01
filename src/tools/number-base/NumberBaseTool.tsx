@@ -261,7 +261,7 @@ export function NumberBaseTool() {
         <section className="wt-surface" aria-label="输入">
           <div className="wt-surface__header">
             <Calculator16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               输入（{from} 进制）
             </Text>
             <span className={styles.spacer} />
@@ -330,7 +330,7 @@ export function NumberBaseTool() {
           <>
             <section className="wt-surface" aria-label="转换结果">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   {to} 进制结果
                 </Text>
                 {result.rounded && (
@@ -363,7 +363,7 @@ export function NumberBaseTool() {
 
             <section className="wt-surface" aria-label="常用进制对照">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   常用进制对照
                 </Text>
                 <span className={styles.spacer} />

@@ -210,7 +210,7 @@ export function TimestampConverterTool() {
         <section className="wt-surface" aria-label="时间戳转换">
           <div className="wt-surface__header">
             <Clock16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               时间戳 ↔ 日期
             </Text>
             <Badge appearance="tint" color="brand" size="small">
@@ -338,7 +338,7 @@ export function TimestampConverterTool() {
           <section className="wt-surface" aria-label="转换结果">
             <div className="wt-surface__header">
               <ArrowSync16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 转换结果
               </Text>
               <span className={styles.spacer} />

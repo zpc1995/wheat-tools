@@ -25,6 +25,7 @@ import {
   Warning16Regular,
 } from '@fluentui/react-icons';
 import { copyText } from '../json-formatter/jsonUtils';
+import { ListFilter, NoMatches, matchesQuery } from '../../components/ListFilter';
 import { CHEAT_GROUPS, PITFALLS, flagsForEntry } from './cheatsheetData';
 
 const useStyles = makeStyles({
@@ -115,6 +116,10 @@ export function RegexCheatsheetTool() {
   const { dispatchToast } = useToastController(toasterId);
 
   const [group, setGroup] = useState(CHEAT_GROUPS[0].id);
+  // `null` means "all groups": a query should be able to search the whole table,
+  // not just the tab you happen to be on.
+  const [scope, setScope] = useState<string | null>(CHEAT_GROUPS[0].id);
+  const [query, setQuery] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
 
   const notify = useCallback(
@@ -143,10 +148,55 @@ export function RegexCheatsheetTool() {
     [notify],
   );
 
+  const searching = query.trim() !== '';
+
   const active = useMemo(
     () => CHEAT_GROUPS.find((item) => item.id === group) ?? CHEAT_GROUPS[0],
     [group],
   );
+
+  /** All entries, tagged with their group, so a global search is possible. */
+  const allEntries = useMemo(
+    () =>
+      CHEAT_GROUPS.flatMap((item) =>
+        item.entries.map((entry) => ({ entry, group: item })),
+      ),
+    [],
+  );
+
+  /**
+   * What to display.
+   *
+   * While a query is active the whole table is searched regardless of the
+   * selected tab — a filter that only searched the visible tab would hide the
+   * very result the user is looking for. `scope` records where the search
+   * started so the tab list can show neutral while results span groups.
+   */
+  const visible = useMemo(() => {
+    if (searching) {
+      return allEntries.filter(({ entry, group: owner }) =>
+        matchesQuery(query, [
+          entry.pattern,
+          entry.meaning,
+          owner.title,
+        ]),
+      );
+    }
+    return active.entries.map((entry) => ({ entry, group: active }));
+  }, [searching, query, allEntries, active]);
+
+  const totalEntries = allEntries.length;
+
+  const enterSearch = (next: string) => {
+    // Remember the tab the search started from, so clearing returns there.
+    if (!searching && next.trim() !== '') setScope(group);
+    setQuery(next);
+  };
+
+  const clearSearch = () => {
+    setQuery('');
+    if (scope) setGroup(scope);
+  };
 
   return (
     <>
@@ -155,8 +205,13 @@ export function RegexCheatsheetTool() {
       <div className={styles.stack}>
         <div className={styles.toolbar}>
           <TabList
-            selectedValue={group}
-            onTabSelect={(_, data) => setGroup(data.value as string)}
+            selectedValue={searching ? null : group}
+            onTabSelect={(_, data) => {
+              // Picking a tab while searching leaves the search; otherwise the
+              // tab would appear to do nothing.
+              if (searching) clearSearch();
+              setGroup(data.value as string);
+            }}
           >
             {CHEAT_GROUPS.map((item) => (
               <Tab key={item.id} value={item.id}>
@@ -181,21 +236,38 @@ export function RegexCheatsheetTool() {
           </MessageBarBody>
         </MessageBar>
 
-        <section className="wt-surface" aria-label={`${active.title}速查`}>
+        <section className="wt-surface" aria-label={searching ? '搜索结果' : `${active.title}速查`}>
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
-              {active.title}
+            <Text as="h2" size={300} weight="semibold">
+              {searching ? `搜索「${query.trim()}」` : active.title}
             </Text>
             <span className={styles.spacer} />
             <Caption1 className={styles.hint}>
-              {active.entries.length} 条
-              {active.note ? ` · ${active.note}` : ''}
+              {searching
+                ? `在全部 ${CHEAT_GROUPS.length} 组中共 ${totalEntries} 条里查找`
+                : `${active.entries.length} 条${active.note ? ` · ${active.note}` : ''}`}
             </Caption1>
           </div>
+
+          <ListFilter
+            value={query}
+            onChange={enterSearch}
+            shown={visible.length}
+            total={totalEntries}
+            label="搜索正则速查表"
+            placeholder="搜索模式或说明，例如 数字、量词、{}、\d"
+          />
+
+          {visible.length === 0 ? (
+            <NoMatches
+              query={query.trim()}
+              hint="可以试试「数字」「量词」「分组」「断言」这类说明中的词。"
+            />
+          ) : (
           <div className={`wt-surface__body ${styles.rows}`}>
-            {active.entries.map((entry) => {
+            {visible.map(({ entry, group: owner }) => {
               const flags = flagsForEntry(entry);
-              const key = `${active.id}:${entry.pattern}`;
+              const key = `${owner.id}:${entry.pattern}`;
               const literal = `/${entry.pattern}/${flags}`;
               return (
                 <div key={key} className={styles.row}>
@@ -207,6 +279,16 @@ export function RegexCheatsheetTool() {
                         {' '}
                         <Badge appearance="tint" color="informative" size="small">
                           {flags}
+                        </Badge>
+                      </>
+                    )}
+                    {/* Shown only while searching across groups, so a hit is
+                        still attributable to its section. */}
+                    {searching && (
+                      <>
+                        {' '}
+                        <Badge appearance="outline" size="small">
+                          {owner.title}
                         </Badge>
                       </>
                     )}
@@ -233,12 +315,13 @@ export function RegexCheatsheetTool() {
               );
             })}
           </div>
+          )}
         </section>
 
         <section className="wt-surface" aria-label="常见陷阱">
           <div className="wt-surface__header">
             <Warning16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               常见陷阱
             </Text>
             <span className={styles.spacer} />

@@ -236,7 +236,7 @@ export function UuidGeneratorTool() {
       <section className="wt-surface" aria-label="当前 UUID">
         <div className="wt-surface__header">
           <Key16Regular />
-          <Text size={300} weight="semibold">
+          <Text as="h2" size={300} weight="semibold">
             当前 UUID
           </Text>
           <Badge appearance="tint" color="brand" size="small">
@@ -342,7 +342,7 @@ export function UuidGeneratorTool() {
       <section className="wt-surface" aria-label="生成历史">
         <div className={`wt-surface__header ${styles.historyHeader}`}>
           <History16Regular />
-          <Text size={300} weight="semibold">
+          <Text as="h2" size={300} weight="semibold">
             生成历史
           </Text>
           <Caption1>共 {history.length} 条</Caption1>

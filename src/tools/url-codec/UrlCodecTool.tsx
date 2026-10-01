@@ -246,7 +246,7 @@ export function UrlCodecTool() {
           <section className="wt-surface" aria-label="输入">
             <div className="wt-surface__header">
               <Link16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 输入
               </Text>
               <span className={styles.spacer} />
@@ -273,7 +273,7 @@ export function UrlCodecTool() {
           <section className="wt-surface" aria-label="输出">
             <div className="wt-surface__header">
               <Link16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 {mode === 'encode' ? '编码结果' : '解码结果'}
               </Text>
               <span className={styles.spacer} />
@@ -333,7 +333,7 @@ export function UrlCodecTool() {
           <section className="wt-surface" aria-label="查询参数">
             <div className="wt-surface__header">
               <Table16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 查询参数解析
               </Text>
               <Caption1 className={styles.hint}>
@@ -365,7 +365,7 @@ export function UrlCodecTool() {
           <section className="wt-surface" aria-label="URL 结构">
             <div className="wt-surface__header">
               <Link16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 URL 结构
               </Text>
               <span className={styles.spacer} />

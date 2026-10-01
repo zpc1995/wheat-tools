@@ -238,7 +238,7 @@ export function Md5GeneratorTool() {
         <section className="wt-surface" aria-label="哈希输入">
           <div className="wt-surface__header">
             <Key16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               输入
             </Text>
             {input && !fileDigest && (
@@ -338,7 +338,7 @@ export function Md5GeneratorTool() {
         <section className="wt-surface" aria-label="哈希结果">
           <div className="wt-surface__header">
             <Shield16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               哈希结果
             </Text>
             <span className={styles.spacer} />

@@ -579,7 +579,7 @@ export function UrlParamsTool() {
 
         <section className="wt-surface" aria-label="重建结果">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               重建后的 URL
             </Text>
             <span className={styles.spacer} />

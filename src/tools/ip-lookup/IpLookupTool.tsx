@@ -263,7 +263,7 @@ export function IpLookupTool() {
         <section className="wt-surface" aria-label="公网 IP">
           <div className="wt-surface__header">
             <Globe16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               我的公网 IP
             </Text>
             <span className={styles.spacer} />
@@ -415,7 +415,7 @@ export function IpLookupTool() {
         <section className="wt-surface" aria-label="查询指定 IP">
           <div className="wt-surface__header">
             <Search16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               查询指定 IP
             </Text>
             <span className={styles.spacer} />

@@ -144,7 +144,7 @@ export function HomeLauncher() {
   return (
     <div className="wt-page">
       <header className="wt-hero">
-        <Title2>工具箱</Title2>
+        <Title2 as="h1">工具箱</Title2>
         <Text>
           共 {tools.length} 个独立小工具，除「外网 IP 查询」需请求第三方接口外，
           其余全部在浏览器本地运行。
@@ -169,7 +169,7 @@ export function HomeLauncher() {
       {filtered.length === 0 ? (
         <div className={styles.emptyState}>
           <Wrench24Filled />
-          <Subtitle1>没有匹配的工具</Subtitle1>
+          <Subtitle1 as="h2">没有匹配的工具</Subtitle1>
           <Text>换个关键词试试，或清空搜索框查看全部工具。</Text>
           <Button appearance="secondary" onClick={() => setQuery('')}>
             清空搜索

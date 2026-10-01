@@ -366,7 +366,7 @@ export function OnlineClockTool() {
         <section className="wt-surface" aria-label="当前时间">
           <div className="wt-surface__header">
             <Clock16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               当前时间
             </Text>
             <span className={styles.spacer} />
@@ -428,7 +428,7 @@ export function OnlineClockTool() {
 
         <section className="wt-surface" aria-label="世界时间">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               世界时间
             </Text>
             <span className={styles.spacer} />
@@ -461,7 +461,7 @@ export function OnlineClockTool() {
         <section className="wt-surface" aria-label="计时器">
           <div className="wt-surface__header">
             <Timer16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               倒计时
             </Text>
             {running && (

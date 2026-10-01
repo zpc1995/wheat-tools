@@ -256,7 +256,7 @@ export function RegexTesterTool() {
         <section className="wt-surface" aria-label="正则表达式">
           <div className="wt-surface__header">
             <Braces16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               正则表达式
             </Text>
             {compiled.ok ? (
@@ -338,7 +338,7 @@ export function RegexTesterTool() {
 
         <section className="wt-surface" aria-label="测试文本">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               测试文本
             </Text>
             <span className={styles.spacer} />
@@ -368,7 +368,7 @@ export function RegexTesterTool() {
           <section className="wt-surface" aria-label="匹配结果">
             <div className="wt-surface__header">
               <Search16Regular />
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 匹配高亮
               </Text>
               <span className={styles.spacer} />
@@ -489,7 +489,7 @@ export function RegexTesterTool() {
 
         <section className="wt-surface" aria-label="常用正则">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               常用模式
             </Text>
             <span className={styles.spacer} />

@@ -20,6 +20,7 @@ import {
   Copy16Regular,
 } from '@fluentui/react-icons';
 import { copyText } from '../json-formatter/jsonUtils';
+import { ListFilter, NoMatches, matchesQuery } from '../../components/ListFilter';
 import {
   NAMED_COLORS,
   buildScale,
@@ -159,6 +160,7 @@ export function ColorConverterTool() {
   const { dispatchToast } = useToastController(toasterId);
 
   const [input, setInput] = useState('#2f6fed');
+  const [colorQuery, setColorQuery] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
 
   const notify = useCallback(
@@ -188,6 +190,16 @@ export function ColorConverterTool() {
   );
 
   const parsed = useMemo(() => parseColor(input), [input]);
+
+  // Matching on the hex as well as the name means pasting a colour value finds
+  // the built-in name for it, which is a common thing to want.
+  const visibleColors = useMemo(
+    () =>
+      NAMED_COLORS.filter((named) =>
+        matchesQuery(colorQuery, [named.name, named.hex]),
+      ),
+    [colorQuery],
+  );
   const color: Rgba | null = parsed.ok ? parsed.color : null;
 
   const rows = useMemo<Row[]>(() => {
@@ -272,7 +284,7 @@ export function ColorConverterTool() {
             <section className="wt-surface" aria-label="颜色预览">
               <div className="wt-surface__header">
                 <Color16Regular />
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   预览
                 </Text>
                 <span className={styles.spacer} />
@@ -327,7 +339,7 @@ export function ColorConverterTool() {
 
             <section className="wt-surface" aria-label="颜色格式">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   各格式表示
                 </Text>
                 <span className={styles.spacer} />
@@ -363,7 +375,7 @@ export function ColorConverterTool() {
             {contrast && (
               <section className="wt-surface" aria-label="对比度">
                 <div className="wt-surface__header">
-                  <Text size={300} weight="semibold">
+                  <Text as="h2" size={300} weight="semibold">
                     对比度（WCAG）
                   </Text>
                   <span className={styles.spacer} />
@@ -425,7 +437,7 @@ export function ColorConverterTool() {
 
             <section className="wt-surface" aria-label="色阶">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   色阶（保持色相）
                 </Text>
                 <span className={styles.spacer} />
@@ -454,7 +466,7 @@ export function ColorConverterTool() {
 
             <section className="wt-surface" aria-label="常用颜色">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   常用颜色
                 </Text>
                 <span className={styles.spacer} />
@@ -462,9 +474,24 @@ export function ColorConverterTool() {
                   {NAMED_COLORS.length} 个内置颜色名
                 </Caption1>
               </div>
+              <ListFilter
+                value={colorQuery}
+                onChange={setColorQuery}
+                shown={visibleColors.length}
+                total={NAMED_COLORS.length}
+                label="搜索颜色名"
+                placeholder="搜索颜色名或色值，例如 red、#ff0000、blue"
+              />
+
+              {visibleColors.length === 0 ? (
+                <NoMatches
+                  query={colorQuery.trim()}
+                  hint="可以试试 red / blue / gray 这类英文名，或直接输入 #rrggbb。"
+                />
+              ) : (
               <div className={`wt-surface__body ${styles.rows}`}>
                 <div className={styles.chips}>
-                  {NAMED_COLORS.map((named) => (
+                  {visibleColors.map((named) => (
                     <Tooltip
                       key={named.name}
                       content={`${named.name} ${named.hex}`}
@@ -482,6 +509,7 @@ export function ColorConverterTool() {
                   ))}
                 </div>
               </div>
+              )}
             </section>
           </>
         )}

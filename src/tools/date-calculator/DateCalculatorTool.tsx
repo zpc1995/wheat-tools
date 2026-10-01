@@ -391,7 +391,7 @@ export function DateCalculatorTool() {
           <>
             <section className="wt-surface" aria-label="偏移设置">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   偏移
                 </Text>
                 <span className={styles.spacer} />
@@ -478,7 +478,7 @@ export function DateCalculatorTool() {
 
             <section className="wt-surface" aria-label="工作日推算">
               <div className="wt-surface__header">
-                <Text size={300} weight="semibold">
+                <Text as="h2" size={300} weight="semibold">
                   按工作日推算
                 </Text>
                 <span className={styles.spacer} />
@@ -538,7 +538,7 @@ export function DateCalculatorTool() {
         {info && (
           <section className="wt-surface" aria-label="日期信息">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 起始日期的信息
               </Text>
               <span className={styles.spacer} />

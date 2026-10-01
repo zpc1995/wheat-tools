@@ -255,7 +255,7 @@ export function TextToolkitTool() {
         <section className="wt-surface" aria-label="文本输入">
           <div className="wt-surface__header">
             <TextBulletListSquare16Regular />
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               输入
             </Text>
             <span className={styles.spacer} />
@@ -277,7 +277,7 @@ export function TextToolkitTool() {
 
         <section className="wt-surface" aria-label="文本操作">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               操作
             </Text>
             <span className={styles.spacer} />
@@ -321,7 +321,7 @@ export function TextToolkitTool() {
 
         <section className="wt-surface" aria-label="统计">
           <div className="wt-surface__header">
-            <Text size={300} weight="semibold">
+            <Text as="h2" size={300} weight="semibold">
               统计
             </Text>
             <span className={styles.spacer} />
@@ -349,7 +349,7 @@ export function TextToolkitTool() {
         {stats.duplicates.length > 0 && (
           <section className="wt-surface" aria-label="重复行">
             <div className="wt-surface__header">
-              <Text size={300} weight="semibold">
+              <Text as="h2" size={300} weight="semibold">
                 重复行
               </Text>
               <Badge appearance="tint" color="warning" size="small">
