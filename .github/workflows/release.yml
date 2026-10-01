@@ -141,12 +141,24 @@ jobs:
             # Re-running for an existing tag: replace the asset and the notes
             # rather than failing, so a fixed build can be republished.
             gh release upload "$TAG" "$ZIP" --clobber
-            gh release edit "$TAG" --notes-file release-notes.md
-            echo "已更新 $TAG 的附件与说明"
+            # `--draft=false` is essential, not cosmetic: deleting and re-pushing
+            # a tag turns its release into a draft, and a draft stays invisible
+            # in the releases list. Without this the re-run "succeeds" while
+            # publishing nothing — which is exactly what happened once.
+            gh release edit "$TAG" --notes-file release-notes.md --draft=false
+            echo "已更新并发布 $TAG"
           else
             gh release create "$TAG" "$ZIP" \
               --title "$TAG" \
               --notes-file release-notes.md
             echo "已创建 $TAG"
+          fi
+
+          # Verify rather than assume: a draft would make this whole job a no-op
+          # that still reports success.
+          DRAFT="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+          if [ "$DRAFT" != "false" ]; then
+            echo "Release $TAG 仍是草稿，对外不可见。"
+            exit 1
           fi
           gh release view "$TAG" --json url,tagName --jq '"已发布 " + .tagName + "：" + .url'
