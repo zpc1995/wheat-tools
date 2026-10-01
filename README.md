@@ -30,7 +30,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 28 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 31 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -75,6 +75,7 @@ src/tools/<id>/
 | **正则测试** | `regex-tester` | 实时匹配高亮、捕获组与命名分组、替换预览；防零宽匹配死循环，并提示灾难性回溯风险。 |
 | **UUID 生成器** | `uuid-generator` | 进入即生成 v4 UUID，可重新生成；历史可复制、收藏、导出 txt。 |
 | **JSON 转类型** | `json-to-type` | 从一份或多份 JSON 样本生成 TypeScript 接口或 Go 结构体；多样本合并可推断可选字段，生成的 TS 经编译器校验。 |
+| **JSON Schema 生成** | `json-schema` | 生成 draft 2020-12 Schema；多样本合并推断 required，并说明 format 与 additionalProperties 的真实行为。 |
 | **正则速查表** | `regex-cheatsheet` | 字符类、锚点、量词、分组、标志与常用模式；**每条都由测试真正编译并匹配过**，并列明 JS 特有陷阱。 |
 | **单位换算** | `unit-converter` | 10 个类别互转；温度按仿射变换处理，存储区分 1000 与 1024，数值对照 NIST 定义值。 |
 | **HEX 查看器** | `hex-viewer` | 十六进制与文本查看、按文件头识别真实类型、熵与可打印占比统计、提取内嵌可读字符串。 |
@@ -86,7 +87,8 @@ src/tools/<id>/
 | **时间戳转换** | `timestamp-converter` | Unix 时间戳与日期互转，按位数自动识别秒/毫秒，给出 ISO、UTC、多时区、周数与相对时间。 |
 | **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
 | **在线时钟** | `online-clock` | 大字时钟、世界时间换算（自动处理夏令时与半小时时区）、可在刷新后继续的倒计时。 |
-| **定时表达式转换** | `cron-convert` | 双向：cron 转 systemd timer / GitHub Actions / crontab 与中文说明，以及 systemd OnCalendar 反解回 cron；并集/交集等语义差异会明确标注或直接拒绝。 |
+| **日期计算器** | `date-calculator` | 两日期相差、日期加减、年龄与工作日推算；日历月按截断处理，跨夏令时也是「加一天」。 |
+| **定时表达式转换** | `cron-convert` | 三向：cron 转 systemd / Actions / crontab，systemd OnCalendar 反解回 cron，以及分析 Actions workflow 的定时计划（UTC 与本地时间对照）。语义差异会明确标注或直接拒绝。 |
 
 ### 文本与格式
 
@@ -122,6 +124,7 @@ src/tools/<id>/
 | 工具 | ID | 说明 |
 | --- | --- | --- |
 | **二维码生成器** | `qrcode-generator` | 可调纠错等级、尺寸、留白、配色，含 WiFi/名片模板，并提示低对比度与反色风险。 |
+| **二维码识别** | `qrcode-reader` | 上传图片识别二维码，内容拆成带标签的字段（WiFi/名片/2FA/网址）；危险协议被拦下并给出钓鱼提示。 |
 | **颜色格式转换** | `color-converter` | HEX/RGB/HSL/HSV/CMYK 互转，带透明度预览、WCAG 对比度评级与色阶。 |
 | **图片压缩** | `image-tool` | 本地压缩与缩放（JPEG/WebP/PNG），体积对比，转 Base64 data URL 与嵌入代码。 |
 
@@ -232,6 +235,10 @@ export function MyTool() {
 | `node scripts/check-password.mjs` | 密码生成：**两万次抽样断言字符分布均匀**（取模偏差检测） |
 | `node scripts/check-http.mjs` | HTTP：URL 构建、请求头解析与禁止头、请求体校验、**错误解释不武断归因**、curl 生成 |
 | `node scripts/check-urlparams.mjs` | URL 参数：重复键与顺序保留、无值/空值区分、原始字节保真、参数对比 |
+| `node scripts/check-actions.mjs` | Actions workflow：UTC 与本地对照、5 段限制、5 分钟下限、60 天停用提示 |
+| `node scripts/check-qrread.mjs` | 二维码识别：**用 qrcode 生成、jsQR 解码的真实往返**，以及各类载荷的分类与安全提示 |
+| `node scripts/check-schema.mjs` | JSON Schema：**用 ajv 拿样本回灌**，样本必须通过、破坏后必须被拒；并实测 format 的注解语义 |
+| `node scripts/check-date.mjs` | 日期：月末截断、闰年、夏令时、**difference 是 addMonths 的精确逆运算** |
 | `node scripts/check-oncalendar.mjs` | OnCalendar 反解：**与 systemd-analyze 的实际触发时刻逐次比对**（见下） |
 | `node scripts/check-comments.mjs` | 检测块注释是否被提前闭合（见下） |
 | `node scripts/check-registry.mjs` | 每个工具目录都已注册：id 与目录名一致、含分类与默认导出（见下） |
@@ -253,6 +260,12 @@ node scripts/check-comments.mjs && node scripts/check-registry.mjs
 > 这样被抓出来的——例如 `readableTextColor` 的三元分支写反、
 > UTC 偏移符号整体颠倒、YAML 别名炸弹在 `toJS()` 阶段抛异常导致转换中断、
 > 协议相对地址被误判为非法协议、JSON 转类型中根接口被命名为 `Root2`。
+>
+> `check-schema.mjs` 与 `check-qrread.mjs` 也用「真实工具」而非桩验证：
+> Schema 会用 ajv 拿原始样本回灌（样本必须通过，删掉必填字段必须被拒），
+> 二维码会用 qrcode 生成、pngjs 转像素、再由工具自己的解码路径读回。
+> 两者都立刻暴露了问题——Schema 的 required 传播、二维码在 400px 下
+> 解不出密集码（实测 600px 才够，因此把解码降采样上限从 1600 放宽到 3000）。
 >
 > `check-oncalendar.mjs` 用了权威实现做交叉验证：本机有
 > `systemd-analyze`，所以不是比对字符串，而是把 17 个表达式的

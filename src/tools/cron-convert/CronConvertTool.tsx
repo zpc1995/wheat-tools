@@ -31,6 +31,11 @@ import {
   onCalendarToCron,
 } from './onCalendarUtils';
 import {
+  WORKFLOW_SAMPLES,
+  analyseWorkflow,
+  type WorkflowAnalysis,
+} from './actionsUtils';
+import {
   CRON_CONVERT_SAMPLES,
   parseCron,
   toCrontab,
@@ -118,10 +123,12 @@ export function CronConvertTool() {
   const toasterId = useId('cronc-toaster');
   const { dispatchToast } = useToastController(toasterId);
 
-  const [direction, setDirection] = useState<'cron-to' | 'oncalendar-to-cron'>('cron-to');
+  type Direction = 'cron-to' | 'oncalendar-to-cron' | 'actions-to-cron';
+  const [direction, setDirection] = useState<Direction>('cron-to');
   const [expression, setExpression] = useState('*/5 * * * *');
   /** Separate input for the reverse direction so switching does not clobber it. */
   const [onCalendar, setOnCalendar] = useState('Mon..Fri *-*-* 09:00:00');
+  const [workflow, setWorkflow] = useState(WORKFLOW_SAMPLES[0].yaml);
   const [target, setTarget] = useState<Target>('systemd');
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -140,6 +147,7 @@ export function CronConvertTool() {
   const parsed = useMemo(() => parseCron(expression), [expression]);
 
   const reverse = useMemo(() => onCalendarToCron(onCalendar), [onCalendar]);
+  const actions = useMemo(() => analyseWorkflow(workflow), [workflow]);
 
   const output: ConversionOutput | { error: string } = useMemo(() => {
     switch (target) {
@@ -183,18 +191,21 @@ export function CronConvertTool() {
           <TabList
             selectedValue={direction}
             onTabSelect={(_, data) => {
-              setDirection(data.value as 'cron-to' | 'oncalendar-to-cron');
+              setDirection(data.value as Direction);
               setCopied(null);
             }}
           >
             <Tab value="cron-to">cron → 其它格式</Tab>
             <Tab value="oncalendar-to-cron">systemd OnCalendar → cron</Tab>
+            <Tab value="actions-to-cron">Actions workflow → 计划</Tab>
           </TabList>
           <span className={styles.spacer} />
           <Caption1 className={styles.hint}>
             {direction === 'cron-to'
               ? 'cron 表达式转换为 systemd / Actions / crontab'
-              : '把 systemd 的 OnCalendar 翻译回 cron'}
+              : direction === 'oncalendar-to-cron'
+                ? '把 systemd 的 OnCalendar 翻译回 cron'
+                : '分析 workflow 里的定时计划（含 UTC 与本地时间对照）'}
           </Caption1>
         </div>
 
@@ -203,6 +214,16 @@ export function CronConvertTool() {
             value={onCalendar}
             onChange={setOnCalendar}
             result={reverse}
+            copied={copied}
+            onCopy={copy}
+          />
+        )}
+
+        {direction === 'actions-to-cron' && (
+          <ActionsSection
+            value={workflow}
+            onChange={setWorkflow}
+            result={actions}
             copied={copied}
             onCopy={copy}
           />
@@ -606,6 +627,233 @@ function OnCalendarSection({
           例如 <code>Mon..Fri *-*-01 09:00</code> 只在「1 号且是工作日」时触发，
           而 cron 的 <code>0 9 1 * 1-5</code> 在每个工作日和每个 1 号都会触发。
           这类表达式会被明确拒绝而不是给出一个看起来对的错误答案。
+        </MessageBarBody>
+      </MessageBar>
+    </>
+  );
+}
+
+/** The GitHub Actions workflow → schedule panel. */
+function ActionsSection({
+  value,
+  onChange,
+  result,
+  copied,
+  onCopy,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  result: ReturnType<typeof analyseWorkflow>;
+  copied: string | null;
+  onCopy: (text: string, key: string) => Promise<void>;
+}) {
+  const styles = useStyles();
+  const ok = result.ok;
+  const analysis: WorkflowAnalysis | null = ok ? result : null;
+
+  return (
+    <>
+      <section className="wt-surface" aria-label="workflow 内容">
+        <div className="wt-surface__header">
+          <Text size={300} weight="semibold">
+            workflow 内容
+          </Text>
+          {ok ? (
+            <Badge appearance="tint" color="success" size="small">
+              YAML 有效
+            </Badge>
+          ) : (
+            <Badge appearance="tint" color="danger" size="small">
+              YAML 错误
+            </Badge>
+          )}
+          <span className={styles.spacer} />
+          <Caption1 className={styles.hint}>
+            粘贴 .github/workflows/*.yml 的内容
+          </Caption1>
+        </div>
+        <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+          <div style={{ padding: '12px 14px', width: '100%' }}>
+            <textarea
+              className="wt-code-area"
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={'on:\n  schedule:\n    - cron: "0 9 * * *"'}
+              aria-label="workflow YAML"
+              spellCheck={false}
+            />
+          </div>
+          <div className={styles.presets}>
+            {WORKFLOW_SAMPLES.map((sample) => (
+              <Tooltip
+                key={sample.label}
+                content={sample.note}
+                relationship="description"
+                withArrow
+              >
+                <Button
+                  appearance="secondary"
+                  size="small"
+                  onClick={() => onChange(sample.yaml)}
+                >
+                  {sample.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {!ok && (
+        <MessageBar intent="error">
+          <MessageBarBody>{result.error}</MessageBarBody>
+        </MessageBar>
+      )}
+
+      {analysis && (
+        <>
+          {analysis.name && (
+            <Caption1 className={styles.hint} style={{ padding: '0 4px' }}>
+              workflow 名称：{analysis.name}
+              {analysis.hasWorkflowDispatch && ' · 支持手动触发（workflow_dispatch）'}
+              {analysis.otherTriggers.length > 0 &&
+                ` · 其他触发：${analysis.otherTriggers.join('、')}`}
+            </Caption1>
+          )}
+
+          {analysis.warnings.map((warning) => (
+            <MessageBar key={warning} intent="warning">
+              <MessageBarBody>
+                <Warning16Regular /> {warning}
+              </MessageBarBody>
+            </MessageBar>
+          ))}
+
+          {analysis.schedules.map((schedule) => (
+            <section
+              key={schedule.index}
+              className="wt-surface"
+              aria-label={`计划 ${schedule.index}`}
+            >
+              <div className="wt-surface__header">
+                <Text size={300} weight="semibold">
+                  计划 #{schedule.index}
+                </Text>
+                {schedule.ok ? (
+                  <Badge appearance="tint" color="success" size="small">
+                    {schedule.description}
+                  </Badge>
+                ) : (
+                  <Badge appearance="tint" color="danger" size="small">
+                    无法解析
+                  </Badge>
+                )}
+                <span className={styles.spacer} />
+                {schedule.minIntervalMinutes !== undefined && (
+                  <Tooltip
+                    content="GitHub 的最小间隔是 5 分钟，更短会被拒绝"
+                    relationship="description"
+                    withArrow
+                  >
+                    <Badge
+                      appearance="tint"
+                      size="small"
+                      color={schedule.minIntervalMinutes < 5 ? 'danger' : 'informative'}
+                    >
+                      最小间隔 {schedule.minIntervalMinutes} 分钟
+                    </Badge>
+                  </Tooltip>
+                )}
+                {schedule.ok && (
+                  <Tooltip content="复制 cron" relationship="label" withArrow>
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      icon={
+                        copied === `wf${schedule.index}` ? (
+                          <Checkmark16Regular />
+                        ) : (
+                          <Copy16Regular />
+                        )
+                      }
+                      onClick={() => void onCopy(schedule.cron, `wf${schedule.index}`)}
+                      aria-label="复制 cron"
+                    />
+                  </Tooltip>
+                )}
+              </div>
+
+              <div className="wt-surface__body" style={{ flexDirection: 'column' }}>
+                <div className={styles.output}>{schedule.cron || '（缺少 cron）'}</div>
+
+                {!schedule.ok && (
+                  <>
+                    <Divider />
+                    <div className={styles.row}>
+                      <Caption1 style={{ color: tokens.colorPaletteRedForeground1 }}>
+                        {schedule.error}
+                      </Caption1>
+                    </div>
+                  </>
+                )}
+
+                {schedule.ok && schedule.nextUtc && schedule.nextLocal && (
+                  <>
+                    <Divider />
+                    <div className={styles.stack}>
+                      {schedule.nextUtc.map((utc, index) => (
+                        <div key={utc} className={styles.row}>
+                          <Caption1 className={styles.hint} style={{ width: 56 }}>
+                            第 {index + 1} 次
+                          </Caption1>
+                          <span className={`${styles.cell} ${styles.mono}`}>
+                            {utc} UTC
+                          </span>
+                          <span className={`${styles.cell} ${styles.mono}`}>
+                            本地 {schedule.nextLocal?.[index]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {schedule.minIntervalMinutes !== undefined &&
+                  schedule.minIntervalMinutes < 5 && (
+                    <>
+                      <Divider />
+                      <div className={styles.row}>
+                        <Warning16Regular
+                          style={{ color: tokens.colorPaletteRedForeground1 }}
+                        />
+                        <Caption1>
+                          最小间隔只有 {schedule.minIntervalMinutes} 分钟，低于 GitHub 的 5 分钟下限，
+                          该 schedule 会被拒绝。
+                        </Caption1>
+                      </div>
+                    </>
+                  )}
+              </div>
+            </section>
+          ))}
+
+          {analysis.schedules.length === 0 && (
+            <MessageBar intent="info">
+              <MessageBarBody>
+                这个 workflow 没有定时计划，因此没有可分析的时间表。
+              </MessageBarBody>
+            </MessageBar>
+          )}
+        </>
+      )}
+
+      <MessageBar intent="info">
+        <MessageBarBody>
+          <MessageBarTitle>为什么需要单独看这一眼</MessageBarTitle>
+          Actions 的 <code>schedule</code> 一律按 <strong>UTC</strong> 解释，
+          与仓库所在地和你的本地时区都无关——所以上面每一条计划都同时列出了
+          UTC 与本地时间。另外定时 workflow 会在仓库连续 60 天无活动后被自动停用，
+          高负载时段的实际触发也可能延迟。
         </MessageBarBody>
       </MessageBar>
     </>
