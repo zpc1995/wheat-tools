@@ -30,18 +30,65 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
+共 16 个工具，按左侧导航的大类分组。导航里的「常用工具」按打开次数排序，
+「我的收藏」由卡片右上角的星标维护，两者都存在浏览器 localStorage。
+
+### 编程工具
+
 | 工具 | ID | 说明 |
 | --- | --- | --- |
-| **JSON 格式化** | `json-formatter` | 左侧粘贴 JSON，右侧渲染可展开/收起的语法高亮树；实时校验并给出行列位置；支持缩进切换、压缩、复制、下载。 |
+| **进制转换** | `number-base` | 2–36 进制互转。整数用 BigInt 精确换算（超过 2^53 不丢精度），小数用缩放整数运算而非浮点。 |
+| **正则测试** | `regex-tester` | 实时匹配高亮、捕获组与命名分组、替换预览；防零宽匹配死循环，并提示灾难性回溯风险。 |
 | **UUID 生成器** | `uuid-generator` | 进入即生成 v4 UUID，可重新生成；历史可复制、收藏、导出 txt。 |
+
+### 时间工具
+
+| 工具 | ID | 说明 |
+| --- | --- | --- |
 | **时间戳转换** | `timestamp-converter` | Unix 时间戳与日期互转，按位数自动识别秒/毫秒，给出 ISO、UTC、多时区、周数与相对时间。 |
-| **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对校验。 |
 | **CRON 表达式** | `cron-builder` | 校验、中文语义描述、接下来 8 次执行时间预览，支持可视化构建与常用模板。 |
-| **Base64 编解码** | `base64-converter` | 正确处理中文与 emoji，兼容 URL 安全字符集与无填充输入；解码可预览图片、格式化 JSON、下载二进制。 |
-| **外网 IP 查询** | `ip-lookup` | 查询出口公网 IP 及归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
-| **二维码生成器** | `qrcode-generator` | 网址/文本/WiFi/名片等生成二维码，可调纠错等级、尺寸、留白、配色，并提示低对比度与反色风险。 |
+| **在线时钟** | `online-clock` | 大字时钟、世界时间换算（自动处理夏令时与半小时时区）、可在刷新后继续的倒计时。 |
+
+### 文本与格式
+
+| 工具 | ID | 说明 |
+| --- | --- | --- |
+| **JSON 格式化** | `json-formatter` | 左侧粘贴 JSON，右侧渲染可展开/收起的语法高亮树；实时校验并给出行列位置。 |
+| **YAML 转 JSON** | `yaml-json` | 双向转换，重复键报错、自定义标签不求值、别名炸弹有上限；可查看结构树与统计。 |
+| **Markdown 预览** | `markdown-preview` | GFM 渲染与目录；**原始 HTML 不解析**，XSS 在结构上不可能发生。 |
+| **Base64 编解码** | `base64-converter` | 正确处理中文与 emoji，兼容 URL 安全字符集与无填充；解码可预览图片、下载二进制。 |
+
+### 哈希与加密
+
+| 工具 | ID | 说明 |
+| --- | --- | --- |
+| **MD5 生成器** | `md5-generator` | 自实现 MD5（Web Crypto 不提供），同时给出 SHA-1/SHA-256；支持文件哈希与结果比对。 |
+| **AES 加解密** | `aes-crypto` | AES-256-GCM（含完整性校验），口令经 PBKDF2 派生；密文自带盐与 IV，支持文件。 |
+
+### 网络工具
+
+| 工具 | ID | 说明 |
+| --- | --- | --- |
+| **URL 编解码** | `url-codec` | 区分「组件 / 整条链接 / 表单」三种转义方式，并解析查询参数与 URL 结构。 |
+| **外网 IP 查询** | `ip-lookup` | 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN、时区。**这是唯一会发起第三方网络请求的工具。** |
+
+### 图片与媒体
+
+| 工具 | ID | 说明 |
+| --- | --- | --- |
+| **二维码生成器** | `qrcode-generator` | 可调纠错等级、尺寸、留白、配色，含 WiFi/名片模板，并提示低对比度与反色风险。 |
+| **颜色格式转换** | `color-converter` | HEX/RGB/HSL/HSV/CMYK 互转，带透明度预览、WCAG 对比度评级与色阶。 |
 
 > 除「外网 IP 查询」外，所有工具都在浏览器本地完成计算，不产生任何网络请求。
+> 「AES 加解密」与「Markdown 预览」的实现里额外说明了各自的安全边界与取舍。
+
+## 使用统计与收藏
+
+- 打开工具时在 localStorage 累加一次计数（`wheat-tools:usage:v1`），
+  「常用工具」按次数排序并显示次数；次数相同则按最近使用排序。
+- 卡片右上角星标切换收藏，「我的收藏」实时同步（首页与侧边栏共用同一份状态）。
+- 只保存工具 id 与次数，**不涉及任何输入内容**；读取时带校验与修复，
+  数据损坏也不会导致页面崩溃。
 
 ## 项目结构
 
@@ -120,15 +167,30 @@ export function MyTool() {
 | `node scripts/check-cron.mjs` | CRON 解析/调度：跨日、跨月、跨年、闰年 2/29、DOM/DOW 或语义、不可能表达式 |
 | `node scripts/check-base64.mjs` | Base64：UTF-8 往返、URL 安全字符集、无填充、内容识别 |
 | `node scripts/check-qrcode.mjs` | 二维码：用独立解码器（jsqr）反向解码生成的图片，断言载荷无损 |
+| `node scripts/check-url.mjs` | URL 编解码：逐条对照平台 `encodeURIComponent` / `encodeURI`，查询串往返 |
+| `node scripts/check-base.mjs` | 进制转换：BigInt 边界（2^64、2^128）、小数精度、2–36 进制全量往返 |
+| `node scripts/check-color.mjs` | 颜色：各格式解析、HSL/HSV 全色相往返、WCAG 对比度 |
+| `node scripts/check-clock.mjs` | 时钟：UTC 偏移符号、冬夏令时、半小时时区、ISO 周、时长解析 |
+| `node scripts/check-regex.mjs` | 正则：**零宽匹配防死循环**（带超时守卫）、风险识别、替换、lastIndex 重置 |
+| `node scripts/check-yaml.mjs` | YAML：重复键、自定义标签不求值、别名炸弹、原型污染、往返一致 |
+| `node scripts/check-markdown.mjs` | Markdown：协议白名单、扫描源码断言无 `dangerouslySetInnerHTML` |
+| `node scripts/check-aes.mjs` | AES：口令派生、GCM 篡改检测、随机盐/IV、信封解析（跑 Node WebCrypto） |
 | `node scripts/check-tools.mjs` | 冒烟测试：在真实浏览器里逐个打开每个工具，断言渲染成功且无报错 |
 | `node scripts/verify-ui.mjs` | 深度交互：搜索、主题切换、JSON 树展开/收起/报错定位、UUID 生成与历史 |
 
 ```bash
 pnpm build
-node scripts/check-md5.mjs && node scripts/check-cron.mjs \
-  && node scripts/check-base64.mjs && node scripts/check-qrcode.mjs
+for s in md5 cron base64 qrcode url base color clock regex yaml markdown aes; do
+  node "scripts/check-$s.mjs" || exit 1
+done
 node scripts/check-tools.mjs && node scripts/verify-ui.mjs
 ```
+
+> 这些检查刻意验证「正确性」而不只是「跑通」：MD5 用 RFC 1321 官方向量、
+> URL 编码对照平台实现、二维码用独立解码器反向解码、正则用超时守卫断言
+> 零宽匹配一定会返回。多个真实缺陷就是这样被抓出来的——例如
+> `readableTextColor` 的三元分支写反、UTC 偏移符号整体颠倒、
+> YAML 别名炸弹在 `toJS()` 阶段抛异常导致转换中断。
 
 > 浏览器相关的脚本通过 `file://` 加载内联后的构建产物，因为本环境的浏览器无法完成
 > http 导航。应用本身生产环境使用 HashRouter（可部署到任意静态托管）；
