@@ -596,3 +596,173 @@ body {
   background-color: var(--colorNeutralBackgroundDisabled);
   color: var(--colorNeutralForegroundDisabled);
 }
+
+/* ---------------------------------------------------------------------------
+   Markdown preview
+   Scoped under .wt-md so these element styles cannot leak into the app chrome.
+   --------------------------------------------------------------------------- */
+.wt-md {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--colorNeutralForeground1);
+  overflow-wrap: break-word;
+}
+
+.wt-md > *:first-child {
+  margin-top: 0;
+}
+
+.wt-md > *:last-child {
+  margin-bottom: 0;
+}
+
+.wt-md h1,
+.wt-md h2,
+.wt-md h3,
+.wt-md h4,
+.wt-md h5,
+.wt-md h6 {
+  margin: 1.4em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.wt-md h1 {
+  font-size: 1.7em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+
+.wt-md h2 {
+  font-size: 1.4em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+}
+
+.wt-md h3 { font-size: 1.2em; }
+.wt-md h4 { font-size: 1.05em; }
+.wt-md h5,
+.wt-md h6 { font-size: 1em; color: var(--colorNeutralForeground3); }
+
+.wt-md p {
+  margin: 0.7em 0;
+}
+
+.wt-md a {
+  color: var(--colorBrandForeground1);
+}
+
+.wt-md ul,
+.wt-md ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+
+.wt-md li {
+  margin: 0.25em 0;
+}
+
+.wt-md li > ul,
+.wt-md li > ol {
+  margin: 0.25em 0;
+}
+
+/* Task lists: marked emits a checkbox-less item, so the state is shown with a
+   text marker instead of a disabled input. */
+.wt-md-task {
+  list-style: none;
+  padding-left: 0.4em;
+}
+
+.wt-md blockquote {
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid var(--colorBrandStroke1);
+  color: var(--colorNeutralForeground2);
+  background-color: var(--colorNeutralBackground2);
+  border-radius: 0 6px 6px 0;
+}
+
+.wt-md hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--colorNeutralStroke2);
+}
+
+.wt-md img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.wt-md-code,
+.wt-md code.wt-md-code {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  background-color: var(--colorNeutralBackground3);
+  color: var(--colorPaletteMarigoldForeground2);
+}
+
+.wt-md-pre {
+  margin: 0.9em 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--colorNeutralStroke2);
+  background-color: var(--colorNeutralBackground2);
+  overflow: auto;
+}
+
+.wt-md-pre code {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  background: none;
+  padding: 0;
+  color: var(--colorNeutralForeground1);
+}
+
+/* Raw HTML is shown verbatim, so mark it clearly as inert text. */
+.wt-md-rawhtml {
+  display: block;
+  border-left: 3px solid var(--colorPaletteYellowBorder2);
+  background-color: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground3);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  padding: 8px 10px;
+  border-radius: 0 6px 6px 0;
+}
+
+.wt-md-blocked {
+  color: var(--colorPaletteRedForeground1);
+  text-decoration: line-through;
+}
+
+.wt-md-blocked-note {
+  font-size: 0.85em;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.wt-md-tablewrap {
+  overflow-x: auto;
+  margin: 0.9em 0;
+}
+
+.wt-md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.wt-md th,
+.wt-md td {
+  border: 1px solid var(--colorNeutralStroke2);
+  padding: 6px 10px;
+}
+
+.wt-md th {
+  background-color: var(--colorNeutralBackground3);
+  font-weight: 600;
+}

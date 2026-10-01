@@ -14,10 +14,12 @@
   "dependencies": {
     "@fluentui/react-components": "^9.54.0",
     "@fluentui/react-icons": "^2.0.245",
+    "marked": "^18.0.14",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2"
+    "react-router-dom": "^6.26.2",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
