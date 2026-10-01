@@ -1,0 +1,4 @@
+# Keep pnpm from stalling on interactive prompts: esbuild needs its
+# postinstall to materialize the platform binary that Vite uses.
+allowBuilds:
+  esbuild: true

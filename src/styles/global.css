@@ -1,0 +1,490 @@
+:root {
+  --wt-surface-radius: 12px;
+  --wt-page-max-width: 1200px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system,
+    'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background-color: var(--colorNeutralBackground2);
+  color: var(--colorNeutralForeground1);
+}
+
+/* Fluent 2 “acrylic-lite” header: a translucent surface that keeps the
+   neutral-layer hierarchy visible while scrolling. */
+.wt-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 20px;
+  background-color: var(--colorNeutralBackground1);
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  backdrop-filter: saturate(180%) blur(20px);
+  background-color: color-mix(
+    in srgb,
+    var(--colorNeutralBackground1) 88%,
+    transparent
+  );
+}
+
+.wt-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Brand tile for the golden wheat mark. Deliberately a warm, near-neutral
+   surface rather than the brand blue, so the gold grains stay legible and
+   keep their warm hue in both light and dark themes. */
+.wt-header__mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex: none;
+  border: 1px solid rgba(224, 154, 10, 0.35);
+  background: radial-gradient(
+    120% 120% at 30% 20%,
+    rgba(255, 200, 61, 0.3) 0%,
+    rgba(255, 200, 61, 0.12) 60%,
+    rgba(224, 154, 10, 0.16) 100%
+  );
+}
+
+.wt-header__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.wt-header__spacer {
+  flex: 1 1 auto;
+}
+
+.wt-main {
+  height: calc(100% - 56px);
+  overflow: auto;
+}
+
+.wt-page {
+  max-width: var(--wt-page-max-width);
+  margin: 0 auto;
+  padding: 32px 20px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.wt-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Launcher grid — Fluent 2 card grid, fluid down to a single column. */
+.wt-tool-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+}
+
+.wt-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 16px;
+  border-radius: var(--wt-surface-radius);
+  border: 1px solid var(--colorNeutralStroke2);
+  background-color: var(--colorNeutralBackground1);
+  box-shadow: var(--shadow2);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition:
+    box-shadow 150ms cubic-bezier(0.33, 0, 0.67, 1),
+    transform 150ms cubic-bezier(0.33, 0, 0.67, 1),
+    border-color 150ms cubic-bezier(0.33, 0, 0.67, 1);
+}
+
+.wt-tool-card:hover {
+  box-shadow: var(--shadow8);
+  transform: translateY(-2px);
+  border-color: var(--colorNeutralStroke1);
+}
+
+.wt-tool-card:focus-visible {
+  outline: 2px solid var(--colorStrokeFocus2);
+  outline-offset: 2px;
+}
+
+.wt-tool-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow4);
+}
+
+.wt-tool-card__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 22px;
+  color: var(--colorBrandForeground1);
+  background-color: var(--colorBrandBackground2);
+}
+
+.wt-tool-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--colorNeutralForeground3);
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+/* Tool page surfaces */
+.wt-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--wt-surface-radius);
+  border: 1px solid var(--colorNeutralStroke2);
+  background-color: var(--colorNeutralBackground1);
+  box-shadow: var(--shadow2);
+  overflow: hidden;
+}
+
+.wt-surface__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  background-color: var(--colorNeutralBackground2);
+}
+
+.wt-surface__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.wt-split {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .wt-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.wt-code-area {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 360px;
+  padding: 12px 14px;
+  border: 0;
+  resize: vertical;
+  outline: none;
+  background-color: transparent;
+  color: var(--colorNeutralForeground1);
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'SF Mono', Menlo,
+    monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+.wt-code-area::placeholder {
+  color: var(--colorNeutralForeground4);
+}
+
+.wt-code-scroll {
+  flex: 1 1 auto;
+  min-height: 360px;
+  max-height: 640px;
+  overflow: auto;
+  padding: 12px 14px;
+}
+
+.wt-empty {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--colorNeutralForeground3);
+}
+
+/* JSON tree */
+.wt-tree {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'SF Mono', Menlo,
+    monospace;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.wt-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.wt-node__children {
+  padding-left: 18px;
+  border-left: 1px solid var(--colorNeutralStroke3);
+  margin-left: 5px;
+}
+
+.wt-node__toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--colorNeutralForeground3);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.wt-node__toggle:hover {
+  color: var(--colorNeutralForeground1);
+  background-color: var(--colorSubtleBackgroundHover);
+}
+
+.wt-node__toggle--leaf {
+  visibility: hidden;
+  cursor: default;
+}
+
+.wt-node__more {
+  display: inline-block;
+  margin: 2px 0 2px 20px;
+  padding: 2px 8px;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 6px;
+  background-color: var(--colorNeutralBackground2);
+  color: var(--colorNeutralForeground2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wt-node__more:hover {
+  background-color: var(--colorNeutralBackground2Hover);
+  color: var(--colorNeutralForeground1);
+}
+
+.wt-node__line {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wt-key {
+  color: var(--colorPaletteMarigoldForeground2);
+}
+
+.wt-punct {
+  color: var(--colorNeutralForeground3);
+}
+
+.wt-string {
+  color: var(--colorPaletteGreenForeground2);
+}
+
+.wt-number {
+  color: var(--colorPaletteBlueForeground2);
+}
+
+.wt-boolean {
+  color: var(--colorPaletteBerryForeground2);
+}
+
+.wt-null {
+  color: var(--colorNeutralForeground4);
+  font-style: italic;
+}
+
+.wt-count {
+  color: var(--colorNeutralForeground4);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.wt-error {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+/* UUID tool */
+.wt-uuid-display {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 24px;
+  align-items: center;
+  text-align: center;
+}
+
+.wt-uuid-value {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  font-size: clamp(18px, 3.2vw, 30px);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  word-break: break-all;
+  color: var(--colorNeutralForeground1);
+  user-select: all;
+  animation: wt-pop 260ms cubic-bezier(0.33, 0, 0.67, 1);
+}
+
+@keyframes wt-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wt-uuid-value {
+    animation: none;
+  }
+  .wt-tool-card {
+    transition: none;
+  }
+}
+
+.wt-history {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.wt-history__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+}
+
+.wt-history__row:last-child {
+  border-bottom: 0;
+}
+
+.wt-history__row:hover {
+  background-color: var(--colorNeutralBackground2Hover);
+}
+
+/* The UUID text itself is the copy affordance. */
+.wt-history__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.wt-history__value:hover {
+  color: var(--colorBrandForeground1);
+}
+
+.wt-history__index {
+  flex: none;
+  width: 30px;
+  color: var(--colorNeutralForeground4);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.wt-history__time {
+  flex: none;
+  color: var(--colorNeutralForeground4);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wt-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--colorNeutralForeground3);
+}
+
+.wt-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

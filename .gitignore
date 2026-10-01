@@ -1,0 +1,29 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Local package-manager caches (kept inside the workspace because the
+# default global cache location is read-only in this environment).
+.npm-cache
+.pnpm-store
+
+.DS_Store
+*.log
+
+# Local UI-verification scratch output
+.verify
+.screenshots
+
+# Ad-hoc diagnostic/scratch builds
+dist-icon
+dist-probe
+.chrome-profile
+
+# Editor / OS noise
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# TypeScript incremental build artifacts
+*.tsbuildinfo
