@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 65 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 75 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 65 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 75 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 65 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 75 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -189,6 +189,16 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **字符串混淆器** | `string-obfuscator` | 字符层面的可逆混淆（leet / 零宽 / 同形字 / 反转…）。**诚实标注每种手法的局限**，leet 反解列出全部候选而非假装唯一。 |
 | **PDF 签名信息查看器** | `pdf-signature-inspector` | **只读结构，不做密码学验证**（界面常驻声明）。做扎实的是 `/ByteRange` 算术 —— 能看出签名后是否被追加内容。 |
 | **XML 转 JSON** | `xml-json` | 自写解析器，**拒绝 DTD 与外部实体**（XXE）。诚实说明映射**必然有损**（属性 vs 元素、混合内容顺序）。用 CPython `xml.etree` 作为独立参照。 |
+| **设备信息** | `device-info` | 屏幕/像素比/时区/CPU 核心/内存档位/WebGL 等，**每项标注来源 API 与是否标准**。明确不做指纹并在源码层断言没有指纹 API。 |
+| **URL 分析器** | `url-parser` | 逐字段拆解与诊断（明文协议、冗余端口、IDN、追踪参数、嵌套 URL）。认证信息默认打码。 |
+| **文本统计** | `text-statistics` | **四个口径分别统计**：码点 / 字素簇 / UTF-16 码元 / UTF-8 字节 —— 解答「为什么编辑器的字数和代码里的长度对不上」。 |
+| **Markdown 转 HTML** | `markdown-html` | 输出 HTML **源码**。默认转义原始 HTML，只放行 http/https/mailto/tel。接手时修掉一个属性注入 XSS（`title`/`alt` 未按属性转义）。 |
+| **XML 格式化** | `xml-formatter` | 基于解析树的缩进与校验。**格式化的正确性定义是只能改空白** —— 用 ElementTree 的元素树逐节点比对验证。 |
+| **SVG 占位图生成器** | `svg-placeholder` | 生成 SVG 与 Data URL，文字与颜色严格转义（用 XML 解析器回读验证良构性）。 |
+| **IPv4 地址转换器** | `ipv4-converter` | 各表示形式互转，**识别并标红 inet_aton 简写形式**（SSRF 绕过的常见手法）。 |
+| **IPv4 范围扩展器** | `ipv4-range-expander` | 起止 IP → 最小 CIDR 集合。与 CPython `ipaddress.summarize_address_range` 逐例比对。 |
+| **BIP39 助记词生成器** | `bip39-generator` | 助记词生成/校验/种子派生，对照 BIP39 官方测试向量全 24 条。 |
+| **OG 社交卡片生成器** | `og-meta-generator` | Open Graph + Twitter Card + SEO 标签，含预览卡片与缺失字段校验。 |
 | **TOML 转 JSON** | `toml-json` | 自写解析器与序列化器，含 TOML 专有的四种日期时间类型。用 **Python `tomllib`** 作为独立参照（Node 无内置 TOML）。 | 每行/逗号/分号/空格/制表符/JSON/SQL IN/Markdown/有序/HTML/YAML 任意互转，每种按该语言的转义规则处理。 | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
 
 ### 时间工具
@@ -404,6 +414,13 @@ export function MyTool() {
 | `node scripts/check-pdf-signature-inspector.mjs` | PDF：手工构造的合法 PDF + **`pdfinfo` 交叉验证** + `/ByteRange` 手算算术 |
 | `node scripts/check-xml-json.mjs` | XML：**CPython `xml.etree`** 逐节点比对 + 生成的 XML 交它解析（良构性证明） |
 | `node scripts/check-toml-json.mjs` | TOML：**CPython `tomllib`** 逐值比对 + 生成的 TOML 交它解析 |
+| `node scripts/check-markdown-html.mjs` | Markdown：**CPython `html.parser`** 回读 + 8 种 XSS 载荷的反证 |
+| `node scripts/check-xml-formatter.mjs` | XML 格式化：**ElementTree 元素树逐节点一致** + minidom 验注释/PI |
+| `node scripts/check-svg-placeholder.mjs` | SVG：**ElementTree 回读**证明良构 + 标签注入反证 |
+| `node scripts/check-ipv4-converter.mjs` | IPv4 转换：**CPython `socket.inet_aton`** 2.1 万例零差异 |
+| `node scripts/check-ipv4-range-expander.mjs` | 范围扩展：**CPython `ipaddress.summarize_address_range`** 5073 例零差异 |
+| `node scripts/check-bip39-generator.mjs` | BIP39：**官方测试向量 24 条** + 词表 SHA-256 钉死 |
+| `node scripts/check-og-meta-generator.mjs` | OG 标签：**CPython `html.parser`** 回读 + 转义反证 |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 

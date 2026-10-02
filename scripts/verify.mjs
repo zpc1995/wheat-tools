@@ -63,8 +63,16 @@ for (const name of toRun) {
 
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
   const lines = output.trim().split('\n');
-  const summary = lines[lines.length - 1] ?? '';
-  const countMatch = /(\d+)\/(\d+) passed/.exec(summary);
+
+  // Find the count anywhere in the output rather than assuming it is the last
+  // line: some checks print a note about their reference source afterwards, and
+  // reading only the final line silently reported those as "0 assertions".
+  let countMatch = null;
+  for (const line of lines) {
+    const match = /(\d+)\/(\d+) passed/.exec(line);
+    if (match) countMatch = match;
+  }
+  const summary = countMatch ? countMatch[0] : (lines[lines.length - 1] ?? '');
   const assertions = countMatch ? Number(countMatch[1]) : 0;
   totalAssertions += assertions;
 
