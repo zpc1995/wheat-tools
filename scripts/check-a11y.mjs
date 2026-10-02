@@ -352,32 +352,53 @@ async function keyboardWalk(limit = 60) {
       const el = document.activeElement;
       if (!el || el === document.body) return { done: true };
 
-      // A focus ring is often not drawn on the focused element itself: Fluent
-      // puts it on the wrapper, so a Dropdown button reports outline none while
-      // its parent reports a solid 2px outline. Checking only the element
-      // produced false positives, so the parent and pseudo-elements are checked
-      // too. (Backticks must not appear in this comment: it lives inside a
-      // template literal, and a backtick would end the string early.)
-      const ring = (node) => {
-        if (!node) return false;
-        const style = getComputedStyle(node);
-        const outlined =
-          style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0;
-        const shadowed = style.boxShadow !== 'none' && style.boxShadow !== '';
-        return outlined || shadowed;
+      // Compare the styled state against the same element's unfocused state.
+      //
+      // The previous version looked for an outline or box-shadow on the element
+      // or one ancestor, which was unreliable in both directions: a wrapper's
+      // decorative shadow counted as a focus ring (so real problems passed), and
+      // a ring drawn further up was missed. Measuring the delta is what actually
+      // answers "can the user see where focus went": if nothing about the
+      // element or its immediate ancestors changes, nothing is visible.
+      const PROPS = ['outlineStyle', 'outlineWidth', 'outlineColor', 'boxShadow',
+                     'borderColor', 'backgroundColor', 'textDecorationLine'];
+
+      const sample = (node, pseudo) => {
+        if (!node) return null;
+        const style = getComputedStyle(node, pseudo || undefined);
+        const out = {};
+        for (const prop of PROPS) out[prop] = style[prop];
+        return out;
       };
-      const hasOutline =
-        ring(el) ||
-        ring(el.parentElement) ||
-        ring(el, '::after') ||
-        ring(el, '::before') ||
-        ring(el.parentElement, '::after');
-      const hasBoxShadow = false;
+
+      const before = [
+        sample(el),
+        sample(el.parentElement),
+        sample(el.parentElement && el.parentElement.parentElement),
+      ];
+
+      // Blur, read the same properties, then restore focus to the element.
+      const active = el;
+      active.blur();
+      if (document.body) document.body.focus();
+      const after = [
+        sample(active),
+        sample(active.parentElement),
+        sample(active.parentElement && active.parentElement.parentElement),
+      ];
+      active.focus();
+
+      const changed = before.some((state, index) => {
+        const other = after[index];
+        if (!state || !other) return false;
+        return PROPS.some((prop) => state[prop] !== other[prop]);
+      });
+
       const tag = el.tagName.toLowerCase();
       return {
         done: false,
         key: tag + (el.id ? '#' + el.id : '') + (typeof el.className === 'string' && el.className ? '.' + el.className.split(/\\s+/)[0] : ''),
-        visibleFocus: hasOutline || hasBoxShadow,
+        visibleFocus: changed,
         // Elements scrolled outside the viewport are still focusable but the
         // user cannot see where focus went.
         inViewport: (() => {

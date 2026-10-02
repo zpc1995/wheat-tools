@@ -331,6 +331,16 @@ body {
   overflow: auto;
 }
 
+/* The textarea carries no border of its own (it sits inside a bordered
+   surface), so `outline: none` must be paired with a replacement or keyboard
+   focus becomes invisible. 37 tools use this class, so the omission affected
+   all of them at once; the inset offset keeps the ring from being clipped by
+   the surface's rounded corners without shifting any layout. */
+.wt-code-area:focus-visible {
+  outline: 2px solid var(--colorStrokeFocus2);
+  outline-offset: -2px;
+}
+
 .wt-code-area::placeholder {
   color: var(--colorNeutralForeground4);
 }
