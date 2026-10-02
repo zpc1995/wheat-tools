@@ -179,6 +179,36 @@ async function evaluate(expression) {
   return result.result.value;
 }
 
+/**
+ * Waits until the launcher shows at least `expected` cards.
+ *
+ * Polling beats a fixed sleep here: the condition is exactly what the next step
+ * needs, and a slow render must not be reported as a broken tool.
+ */
+async function waitForCards(expected, attempts = 40) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const count = await evaluate(
+      `document.querySelectorAll('.wt-tool-card').length`,
+    ).catch(() => 0);
+    if (typeof count === 'number' && count >= expected) return true;
+    await sleep(150);
+  }
+  return false;
+}
+
+/** Waits until a tool surface has rendered, or gives up so the failure is reported. */
+async function waitForSurfaces(attempts = 40) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const rendered = await evaluate(`(() => {
+      if (document.body.innerText.includes('未找到工具')) return true;
+      return document.querySelectorAll('.wt-surface').length > 0;
+    })()`).catch(() => false);
+    if (rendered) return true;
+    await sleep(150);
+  }
+  return false;
+}
+
 const results = [];
 
 try {
@@ -217,7 +247,14 @@ try {
       if (home) home.click();
       return true;
     })()`);
-    await sleep(500);
+
+    // Poll for the launcher rather than sleeping a fixed amount.
+    //
+    // This was flaky: with 65 cards the launcher occasionally needed longer than
+    // the old 500 ms under load (other checks running), and a missing card made
+    // every tool report as failed — a broken check masquerading as a broken app.
+    // Waiting for the actual condition removes the guesswork.
+    await waitForCards(cards.length);
 
     const name = await evaluate(`(() => {
       const cards = [...document.querySelectorAll('.wt-tool-card')];
@@ -228,7 +265,8 @@ try {
       return title;
     })()`);
 
-    await sleep(1200);
+    // Same reasoning as above: wait for the tool to render rather than guessing.
+    await waitForSurfaces();
 
     const state = await evaluate(`(() => {
       const surfaces = document.querySelectorAll('.wt-surface').length;

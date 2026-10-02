@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 56 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 65 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 56 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 65 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 56 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 65 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -181,7 +181,15 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **预计完成时间** | `eta-calculator` | 按进度或每项耗时估算。**有意显示不确定性**（由 1/√n 推出 ±误差），样本少时提示不可靠，而不是给一个假装精确的时间。 |
 | **百分比计算器** | `percentage-calculator` | 11 张卡片各带公式。含「涨 Y% 再降 Y% 不等于原值」这个高频误区。分配用最大余数法，各份之和精确等于总数。 |
 | **SafeLink 解码器** | `safelink-decoder` | 还原 Defender 包装的链接。`sdata` 是签名但**明确标注本工具不验证**，`signatureVerified` 恒为 false。`+` 号的表单/RFC 3986 歧义两种读法并排显示。 |
-| **列表格式转换** | `list-converter` | 每行/逗号/分号/空格/制表符/JSON/SQL IN/Markdown/有序/HTML/YAML 任意互转，每种按该语言的转义规则处理。 | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
+| **OTP 验证码生成器** | `otp-generator` | TOTP（RFC 6238）与 HOTP（RFC 4226），密钥不保存不上传。参照 RFC 4226 附录 D 与 RFC 6238 附录 B 的**全部官方向量**（含中间的 HMAC 摘要与截断偏移）。 |
+| **密码强度分析仪** | `password-strength` | 字符集熵 + **模式分析**（弱口令榜、键盘序、重复、序列、日期）。反证断言：`password123` 长度够但模式弱，判为强是错的。 |
+| **Token 生成器** | `token-generator` | hex / Base64 / Base64URL / 自定义字符集。只用 `crypto.getRandomValues`，并用**卡方检验**验证分布、断言实现里没有 `Math.random`。 |
+| **RSA 密钥对生成器** | `rsa-key-pair` | 2048/3072/4096 位（不提供 1024 并说明原因）。把生成的 PEM 交给 `node:crypto` 做**真实签名验签与 OAEP 加解密往返** —— 证明密钥真的可用，不只是格式像。 |
+| **电话号码解析** | `phone-parser` | 覆盖 39 个国家/地区，未收录的明确告知不猜。用 Ofcom 影视保留号段与 ITU-T E.164 做参照。 |
+| **字符串混淆器** | `string-obfuscator` | 字符层面的可逆混淆（leet / 零宽 / 同形字 / 反转…）。**诚实标注每种手法的局限**，leet 反解列出全部候选而非假装唯一。 |
+| **PDF 签名信息查看器** | `pdf-signature-inspector` | **只读结构，不做密码学验证**（界面常驻声明）。做扎实的是 `/ByteRange` 算术 —— 能看出签名后是否被追加内容。 |
+| **XML 转 JSON** | `xml-json` | 自写解析器，**拒绝 DTD 与外部实体**（XXE）。诚实说明映射**必然有损**（属性 vs 元素、混合内容顺序）。用 CPython `xml.etree` 作为独立参照。 |
+| **TOML 转 JSON** | `toml-json` | 自写解析器与序列化器，含 TOML 专有的四种日期时间类型。用 **Python `tomllib`** 作为独立参照（Node 无内置 TOML）。 | 每行/逗号/分号/空格/制表符/JSON/SQL IN/Markdown/有序/HTML/YAML 任意互转，每种按该语言的转义规则处理。 | 65 条状态码，含标准英文名、中文说明、**出处（RFC + 小节）**与规范程度徽标。非标准码（418/449/509）写明身份而不混入标准表。 |
 
 ### 时间工具
 
@@ -387,6 +395,15 @@ export function MyTool() {
 | `node scripts/check-json-diff.mjs` | JSON 对比：往返性质（打补丁后与右侧深度相等）+ 自反性 + 对称性 + RFC 6901 |
 | `node scripts/check-safelink-decoder.mjs` | SafeLink：构造式往返回环 + 浏览器 `URLSearchParams` 作为独立参照 |
 | `node scripts/check-git-cheatsheet.mjs` | Git 速查：危险等级与实际语义一致性（丢数据的必须标危险、只读必须标安全） |
+| `node scripts/check-otp-generator.mjs` | OTP：**RFC 4226 附录 D 与 RFC 6238 附录 B 全量向量**（含中间值）+ `node:crypto` |
+| `node scripts/check-password-strength.mjs` | 密码强度：SecLists 弱口令榜排名 + **XKCD #936 的 ~28 位** |
+| `node scripts/check-token-generator.mjs` | Token：**RFC 4648 向量** + `Buffer` 交叉验证 + 卡方检验（并用有偏源验证检验有效） |
+| `node scripts/check-rsa-key-pair.mjs` | RSA：`node:crypto` 解析 PEM 并做**真实签名/加解密往返** + JWK 逐字段比对 |
+| `node scripts/check-phone-parser.mjs` | 电话号码：Ofcom 影视保留段 + ITU-T E.164 + 122 个号码四种形式的往返 |
+| `node scripts/check-string-obfuscator.mjs` | 混淆：**NFKC 原生交叉验证** + 7 种变换全部 128 个子集的往返回环 |
+| `node scripts/check-pdf-signature-inspector.mjs` | PDF：手工构造的合法 PDF + **`pdfinfo` 交叉验证** + `/ByteRange` 手算算术 |
+| `node scripts/check-xml-json.mjs` | XML：**CPython `xml.etree`** 逐节点比对 + 生成的 XML 交它解析（良构性证明） |
+| `node scripts/check-toml-json.mjs` | TOML：**CPython `tomllib`** 逐值比对 + 生成的 TOML 交它解析 |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 
