@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 75 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 83 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 75 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 83 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 75 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 83 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -189,6 +189,14 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **字符串混淆器** | `string-obfuscator` | 字符层面的可逆混淆（leet / 零宽 / 同形字 / 反转…）。**诚实标注每种手法的局限**，leet 反解列出全部候选而非假装唯一。 |
 | **PDF 签名信息查看器** | `pdf-signature-inspector` | **只读结构，不做密码学验证**（界面常驻声明）。做扎实的是 `/ByteRange` 算术 —— 能看出签名后是否被追加内容。 |
 | **XML 转 JSON** | `xml-json` | 自写解析器，**拒绝 DTD 与外部实体**（XXE）。诚实说明映射**必然有损**（属性 vs 元素、混合内容顺序）。用 CPython `xml.etree` 作为独立参照。 |
+| **SQL 美化** | `sql-formatter` | 关键字大写与子句换行，字符串 / 引号标识符 / 注释逐字节保留。用 **CPython `sqlite3` 真实执行**格式化前后的语句，验证语义不变。 |
+| **docker run 转 compose** | `docker-run-compose` | POSIX 切词 + 约 70 个 flag 转 compose YAML；compose 表达不了的选项（`-d`/`--rm`/`--gpus`）明确告警而不是静默丢弃。 |
+| **键盘事件信息** | `keycode-info` | `key`（字符）与 `code`（物理位置）的区别用 9 个真实例子讲清。**Tab 绝不拦截**，否则键盘用户会被困住。 |
+| **MIME 类型速查** | `mime-types` | 与 **CPython `mimetypes`** 比对：133 个扩展名中 99 个一致，其余分歧逐条登记理由并双向锁定。 |
+| **User Agent 分析器** | `user-agent-parser` | **诚实标注 UA 可伪造与 UA Reduction**，并明确警告不能用 UA 做安全判断。反证 `indexOf('Chrome')` 在 Edge / Opera / 三星上会误判。 |
+| **MAC 地址生成器** | `mac-generator` | 随机 MAC 默认设为单播 + 本地管理（否则会与真实厂商 OUI 冲突）；四种格式互转。 |
+| **数字转文字** | `number-to-words` | 中英文分组规则不同（万/亿 与 thousand/million），另有金融大写（壹佰贰拾叁）。 |
+| **邮箱规范化** | `email-normalizer` | 用明确规则而非那个著名的 RFC 5322 正则。**修掉一个导致构建失败的 `node:url` 依赖**，改为浏览器安全实现并与平台逐一对照。 |
 | **设备信息** | `device-info` | 屏幕/像素比/时区/CPU 核心/内存档位/WebGL 等，**每项标注来源 API 与是否标准**。明确不做指纹并在源码层断言没有指纹 API。 |
 | **URL 分析器** | `url-parser` | 逐字段拆解与诊断（明文协议、冗余端口、IDN、追踪参数、嵌套 URL）。认证信息默认打码。 |
 | **文本统计** | `text-statistics` | **四个口径分别统计**：码点 / 字素簇 / UTF-16 码元 / UTF-8 字节 —— 解答「为什么编辑器的字数和代码里的长度对不上」。 |
@@ -421,6 +429,12 @@ export function MyTool() {
 | `node scripts/check-ipv4-range-expander.mjs` | 范围扩展：**CPython `ipaddress.summarize_address_range`** 5073 例零差异 |
 | `node scripts/check-bip39-generator.mjs` | BIP39：**官方测试向量 24 条** + 词表 SHA-256 钉死 |
 | `node scripts/check-og-meta-generator.mjs` | OG 标签：**CPython `html.parser`** 回读 + 转义反证 |
+| `node scripts/check-sql-formatter.mjs` | SQL：**CPython `sqlite3` 真实执行**格式化前后的语句，验证语义不变 |
+| `node scripts/check-docker-run-compose.mjs` | compose：yaml 回环 + 独立第二份解析器 + 等价写法稳定性 |
+| `node scripts/check-mime-types.mjs` | MIME：**CPython `mimetypes`** 比对，分歧逐条登记并双向锁定 |
+| `node scripts/check-user-agent-parser.mjs` | UA：真实 UA 固定值 + 畸形输入不瞎猜 + `indexOf('Chrome')` 反证 |
+| `node scripts/check-email-normalizer.mjs` | 邮箱：**`node:url` 在 28 个含畸形用例上逐一对照**（含一处刻意偏离的显式断言） |
+| `node scripts/check-jsx-text.mjs` | 用 **TypeScript 语法树**查 JSX 文本里不会渲染的 Markdown 加粗语法 |
 
 一次性运行全部逻辑检查（CI 与本地通用）：
 
