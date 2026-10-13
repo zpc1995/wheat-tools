@@ -7,7 +7,12 @@
  * interop, so it ships as a plain, self-contained implementation of RFC 1321
  * rather than pulling in a dependency.
  *
- * SHA-1 / SHA-256 come from the platform (`crypto.subtle`).
+ * SHA-1 / SHA-256 / SHA-384 / SHA-512 come from the platform (`crypto.subtle`).
+ *
+ * The SHA-2 family is offered at all four widths because picking between 256 and
+ * 512 is a real decision (512 is slower and produces a longer digest that does not
+ * fit some fixed-width columns), and a hash tool that only offers one of them sends
+ * people elsewhere for the other.
  */
 
 /** Per-round left-rotation amounts from RFC 1321. */
@@ -157,9 +162,9 @@ export function md5(input: string): HashResult {
   return toResult(md5Bytes(utf8Bytes(input)));
 }
 
-/** SHA-1 / SHA-256 via the platform Web Crypto API. */
+/** SHA-1 / SHA-256 / SHA-384 / SHA-512 via the platform Web Crypto API. */
 export async function subtleHash(
-  algorithm: 'SHA-1' | 'SHA-256',
+  algorithm: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512',
   input: string,
 ): Promise<HashResult> {
   if (!globalThis.crypto?.subtle) {

@@ -99,7 +99,7 @@ const useStyles = makeStyles({
 });
 
 interface AlgorithmResult {
-  key: 'md5' | 'sha1' | 'sha256';
+  key: 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512';
   label: string;
   note: string;
   result: HashResult | null;
@@ -113,6 +113,8 @@ export function Md5GeneratorTool() {
   const [input, setInput] = useState('');
   const [sha1, setSha1] = useState<HashResult | null>(null);
   const [sha256, setSha256] = useState<HashResult | null>(null);
+  const [sha384, setSha384] = useState<HashResult | null>(null);
+  const [sha512, setSha512] = useState<HashResult | null>(null);
   const [compare, setCompare] = useState(false);
   const [expected, setExpected] = useState('');
   const [fileDigest, setFileDigest] = useState<HashResult | null>(null);
@@ -128,30 +130,38 @@ export function Md5GeneratorTool() {
   );
   const effectiveMd5 = fileDigest ?? md5Result;
 
-  // SHA-1 / SHA-256 are async; the flag prevents an older digest overwriting a
-  // newer one while the user keeps typing.
+  // The platform digests are async; the flag prevents an older digest overwriting
+  // a newer one while the user keeps typing.
   useEffect(() => {
     let cancelled = false;
     if (!input || fileDigest) {
       setSha1(null);
       setSha256(null);
+      setSha384(null);
+      setSha512(null);
       return undefined;
     }
 
     void (async () => {
       try {
-        const [a, b] = await Promise.all([
+        const [a, b, c, d] = await Promise.all([
           subtleHash('SHA-1', input),
           subtleHash('SHA-256', input),
+          subtleHash('SHA-384', input),
+          subtleHash('SHA-512', input),
         ]);
         if (!cancelled) {
           setSha1(a);
           setSha256(b);
+          setSha384(c);
+          setSha512(d);
         }
       } catch {
         if (!cancelled) {
           setSha1(null);
           setSha256(null);
+          setSha384(null);
+          setSha512(null);
         }
       }
     })();
@@ -225,6 +235,8 @@ export function Md5GeneratorTool() {
     { key: 'md5', label: 'MD5', note: '128 位 · 已不适合安全校验', result: effectiveMd5 },
     { key: 'sha1', label: 'SHA-1', note: '160 位 · 同样已不推荐用于签名', result: sha1 },
     { key: 'sha256', label: 'SHA-256', note: '256 位 · 安全场景请用这个', result: sha256 },
+    { key: 'sha384', label: 'SHA-384', note: '384 位 · SHA-512 的截断版，强度足够', result: sha384 },
+    { key: 'sha512', label: 'SHA-512', note: '512 位 · 64 位平台上往往比 SHA-256 还快', result: sha512 },
   ];
 
   const normalizedExpected = expected.trim().toLowerCase().replace(/\s+/g, '');
@@ -433,7 +445,9 @@ export function Md5GeneratorTool() {
             <div className={styles.matchRow}>
               <Caption1 className={styles.hint}>
                 MD5 与 SHA-1 均已被证明存在碰撞，请勿用于密码存储或签名校验；
-                需要安全强度时请使用 SHA-256 或更强的算法。
+                需要安全强度时请使用 SHA-256 或更强的算法（SHA-384 / SHA-512）。
+                注意哈希不等于加密：它不可逆，也不加盐，因此不能用来存密码
+                （密码要用 bcrypt / scrypt / Argon2 这类带盐且刻意变慢的算法）。
               </Caption1>
             </div>
           </div>
