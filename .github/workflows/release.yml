@@ -110,7 +110,24 @@ jobs:
         # The browser-driven checks are excluded: this runner has no Chromium,
         # and a check that cannot run must not be reported as passing. They run
         # locally via `pnpm verify:all`.
-        run: pnpm verify
+        #
+        # Failures are re-emitted as `::error` annotations on purpose. Action job
+        # logs are only readable in the web UI, so a red run on a machine you are
+        # not sitting at is otherwise undiagnosable; annotations are exposed by
+        # the API and in the commit view.
+        run: |
+          set -o pipefail
+          if pnpm verify 2>&1 | tee verify-output.txt; then
+            echo "检查套件全部通过"
+          else
+            grep -E '^(FAIL|HARNESS)' verify-output.txt | head -20 | while IFS= read -r line; do
+              echo "::error title=逻辑检查失败::${line//$'\n'/ }"
+            done
+            summary="$(tail -c 1200 verify-output.txt | tr '\n' ' ' | tr -d '\r')"
+            echo "::error title=检查输出末尾::${summary}"
+            exit 1
+          fi
+        shell: bash
 
       - name: Build
         run: pnpm build
