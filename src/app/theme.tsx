@@ -9,9 +9,8 @@ import {
 } from 'react';
 import {
   FluentProvider,
-  createDarkTheme,
-  createLightTheme,
-  type BrandVariants,
+  webDarkTheme,
+  webLightTheme,
   type Theme,
 } from '@fluentui/react-components';
 
@@ -32,53 +31,18 @@ const STORAGE_KEY = 'wheat-tools:theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 /**
- * Brand ramp: violet, 258° hue.
+ * Fluent's stock themes.
  *
- * Why violet rather than the default Fluent blue: the stock blue makes the app
- * look like an unstyled Fluent sample rather than something with its own
- * identity, and violet reads as "tooling" without drifting into the blue that
- * would defeat the point.
+ * An earlier version shipped a hand-built violet brand ramp. It was reverted:
+ * the default blue is what the design system's own guidance assumes, so every
+ * Fluent component's brand states (hover, pressed, selected, focus) come out
+ * correct without having to be re-verified against measured contrast, and the
+ * app no longer needs a 16-stop ramp that has to be maintained by hand.
  *
- * The ramp is a full 16-stop scale rather than one colour because a single hue
- * cannot work in both themes. Every vivid purple fails as text on a dark surface
- * (the darkest candidate measured about 2:1), so the dark theme has to draw its
- * foregrounds from the light half of the ramp — which is exactly what
- * `createDarkTheme` does with this input.
- *
- * The specific stops are not arbitrary; they were chosen against measured
- * contrast requirements (WCAG AA, 4.5:1):
- *
- *   - white on stop 80 (filled buttons, light theme)        6.96 ✓
- *   - stop 80 on white (link text, light theme)             6.96 ✓
- *   - stop 100 on #1f1f1f (link text, dark theme)           4.54 ✓
- *
- * The light half is deliberately raised: with an even ramp, Fluent's dark theme
- * picks stop 100 for `colorBrandForeground1`, which measured only 3.77:1 on the
- * dark surface — below AA for body-sized link text. Lifting the light stops is
- * what fixes that, and it is why the ramp is spelled out here rather than
- * generated from a formula at runtime.
+ * The colour-preference logic below is independent of this and is unchanged.
  */
-const brandRamp: BrandVariants = {
-  10: '#211146',
-  20: '#2a135f',
-  30: '#321479',
-  40: '#3a1494',
-  50: '#4212b1',
-  60: '#490fcf',
-  70: '#4f0bef',
-  80: '#5f1df8',
-  90: '#743df3',
-  100: '#956ef2',
-  110: '#a98af1',
-  120: '#bca5f1',
-  130: '#cebef3',
-  140: '#e0d7f6',
-  150: '#ece6fa',
-  160: '#f7f4fd',
-};
-
-const lightTheme = createLightTheme(brandRamp);
-const darkTheme = createDarkTheme(brandRamp);
+const lightTheme = webLightTheme;
+const darkTheme = webDarkTheme;
 
 interface ThemeContextValue {
   /** The theme currently rendered. */
