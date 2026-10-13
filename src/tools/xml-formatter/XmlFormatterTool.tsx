@@ -185,7 +185,7 @@ export function XmlFormatterTool() {
               XML 格式化 · 压缩 · 校验
             </Text>
             <Caption1 className={styles.hint}>
-              解析器不是新写的：它**复用**了「XML 转 JSON」工具里那套自写解析器
+              解析器不是新写的：它<strong>复用</strong>了「XML 转 JSON」工具里那套自写解析器
               （同一个文件，本工具只读取、不修改）。因此两个工具对「什么是合法 XML」的判断完全一致，
               而且格式化的正确性有明确的定义——只改空白，不改结构：元素、属性、文本内容与 CDATA
               都逐字节保留，只有元素之间的缩进空白会被重排。
