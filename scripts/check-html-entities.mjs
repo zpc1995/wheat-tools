@@ -553,7 +553,21 @@ console.log('--- 长输入与边界 ---');
 // ---------------------------------------------------------------------------
 console.log('--- 权威参照物：Chromium 的 HTML 解析器 ---');
 // ---------------------------------------------------------------------------
+/**
+ * Whether the browser is still worth probing.
+ *
+ * The probe is called four times, and each call used to be allowed 180 seconds.
+ * On a runner where `chromium` exists but never exits (a stub, a snap that wants
+ * a session bus, a missing sandbox) that meant up to twelve minutes — well past
+ * the suite's own 300-second per-check limit, so the check was killed and
+ * reported as a failure instead of skipping. Once one probe fails there is
+ * nothing to learn from trying again, so the answer is remembered and the
+ * remaining comparisons are skipped immediately.
+ */
+let browserUsable = true;
+
 function chromiumProbe(body) {
+  if (!browserUsable) return null;
   const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="out"></pre><script>${body}</script></body></html>`;
   const page = '.verify/html-entities-probe.html';
   writeFileSync(page, html);
@@ -571,9 +585,14 @@ function chromiumProbe(body) {
       '--dump-dom',
       pathToFileURL(page).href,
     ],
-    { encoding: 'utf8', timeout: 180000 },
+    // Bounded well below the suite's 300 s per-check limit so a hung browser
+    // cannot consume the whole budget.
+    { encoding: 'utf8', timeout: 60000 },
   );
-  if (result.error || result.status !== 0 || !result.stdout) return null;
+  if (result.error || result.status !== 0 || !result.stdout) {
+    browserUsable = false;
+    return null;
+  }
   const match = /<pre id="out">([\s\S]*?)<\/pre>/.exec(result.stdout);
   if (!match) return null;
   try {

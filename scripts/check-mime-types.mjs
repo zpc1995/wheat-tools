@@ -6,7 +6,10 @@
  * treats as primary and compares the answers:
  *
  *   - exact agreement is asserted to be at least 90 of 133;
- *   - every disagreement must appear in DIVERGENCES below, together with the
+ *   - disagreements that are purely a CPython version difference are listed
+ *     separately in VERSION_DIVERGENCES, so the check tests the table rather
+ *     than the interpreter's release;
+ *   - every other disagreement must appear in DIVERGENCES below, together with the
  *     value Python produced and a reason. A new, undocumented disagreement
  *     fails the check, and so does a DIVERGENCES entry that no longer
  *     corresponds to a real disagreement (stale entry) — so the map cannot
@@ -427,7 +430,32 @@ console.log('--- 权威参照物：CPython mimetypes ---');
       ]);
 
       const undocumented = [];
+      /**
+       * Divergences that exist only because CPython's own table changed between
+       * releases — recorded with the Python answer each one is known to produce.
+       *
+       * This check ran green locally (CPython 3.13.5) and red in CI (3.12.3) on
+       * exactly two extensions, because Python *gained* `application/toml` in
+       * 3.13 and *changed* `mkv` to `video/matroska` — both times agreeing with
+       * this table. Pinning "every divergence is documented" to one Python
+       * release makes the check a test of the interpreter's version rather than
+       * of the table, so these are listed as their own category.
+       *
+       * A disagreement that is not in this list and not in DIVERGENCES still
+       * fails, which is what keeps the check meaningful.
+       */
+      const VERSION_DIVERGENCES = {
+        mkv: {
+          "video/x-matroska":
+            'CPython 3.12 及更早用 video/x-matroska；3.13 起改为 video/matroska，与本表一致。',
+        },
+        toml: {
+          null: 'CPython 3.13 起才收录 .toml（application/toml），与本表一致；更早版本不认识它。',
+        },
+      };
+
       const seenDivergences = new Set();
+      const seenVersionDivergences = new Set();
       const unknowns = new Set();
       let matches = 0;
       for (const [ext, ours] of pairs) {
@@ -450,6 +478,11 @@ console.log('--- 权威参照物：CPython mimetypes ---');
           unknowns.add(ext);
           continue;
         }
+        const byVersion = VERSION_DIVERGENCES[ext];
+        if (byVersion && Object.prototype.hasOwnProperty.call(byVersion, String(python))) {
+          seenVersionDivergences.add(ext);
+          continue;
+        }
         undocumented.push(`${ext}: 本表 ${ours} / Python ${python}`);
       }
 
@@ -458,9 +491,28 @@ console.log('--- 权威参照物：CPython mimetypes ---');
       const stale = Object.keys(DIVERGENCES).filter((ext) => !seenDivergences.has(ext));
       check('记录的分歧没有过时项（每个都仍是真实分歧）', stale, []);
       check(
-        '一致 + 已记录分歧 + Python 未收录 = 全部比对项',
-        matches + seenDivergences.size + unknowns.size,
+        '一致 + 已记录分歧 + 版本导致的分歧 + Python 未收录 = 全部比对项',
+        matches + seenDivergences.size + seenVersionDivergences.size + unknowns.size,
         pairs.length,
+      );
+      // Which version divergences actually appear depends on the running
+      // interpreter — on 3.13 both of them agree with this table, so the set is
+      // legitimately empty there. Asserting the set itself would just be a test
+      // of the Python version again, so instead the table's own consistency is
+      // asserted, and the observed set is reported for information.
+      const recordedVersionKeys = Object.keys(VERSION_DIVERGENCES);
+      check(
+        '版本分歧记录的扩展名都在比对表里（没有拼错或失效的键）',
+        recordedVersionKeys.filter((ext) => !pairs.some(([candidate]) => candidate === ext)),
+        [],
+      );
+      check(
+        '版本分歧与普通分歧不重叠（同一个扩展名只会走一条分支）',
+        recordedVersionKeys.filter((ext) => DIVERGENCES[ext]),
+        [],
+      );
+      console.log(
+        `      本次实际出现的版本分歧：${seenVersionDivergences.size > 0 ? [...seenVersionDivergences].join(', ') : '（无，当前解释器与本表一致）'}`,
       );
       check(
         'Python 未收录的扩展名与预期清单一致',
