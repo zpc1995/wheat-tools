@@ -66,9 +66,19 @@ console.log('--- 架构层面的 XSS 防护 ---');
   ).trim();
 
   check('源码中不存在 dangerouslySetInnerHTML 用法', hits, '');
+
+  // Scoped to the markdown renderer, not the whole tree.
+  //
+  // The claim being defended is "this tool renders through React elements, so a
+  // raw HTML string never reaches the DOM" — that is what makes its XSS defence
+  // structural. Scanning all of `src/` made the assertion say something else, and
+  // it broke the moment a legitimate `innerHTML` user appeared: the WYSIWYG editor
+  // sets `innerHTML` by definition. A check that fails on correct code is worse
+  // than no check, because it teaches people to ignore it.
+  const markdownFiles = globSync('src/tools/markdown-preview/**/*.{ts,tsx}').join(' ');
   check(
-    '渲染实现未使用 innerHTML 赋值',
-    execSync("grep -rn 'innerHTML *=' src/ || true", { encoding: 'utf8' }).trim(),
+    'Markdown 渲染实现未使用 innerHTML 赋值',
+    execSync(`grep -n 'innerHTML *=' ${markdownFiles} || true`, { encoding: 'utf8' }).trim(),
     '',
   );
 }
