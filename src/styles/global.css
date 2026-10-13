@@ -172,6 +172,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  /* Fill the scroll container so a `flex: 1` child can use the leftover height.
+     Percentage heights resolve here because `.wt-content` has a definite height
+     from the flex shell. Without this the page is content-height, so a split
+     pane sizes to whatever its children need — which left the JSON formatter's
+     input at its 360 px minimum inside a ~800 px tall column. */
+  min-height: 100%;
 }
 
 /* Offset the top padding so the first heading aligns optically with the
@@ -303,6 +309,10 @@ body {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* Take the height the page has left over rather than only as much as the
+     panes' content needs. `min-height: 0` lets it shrink again on short
+     viewports instead of overflowing. */
+  flex: 1 1 auto;
   min-height: 0;
 }
 

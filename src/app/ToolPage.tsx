@@ -25,6 +25,15 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+    // Grow into the height the page has left under the hero.
+    //
+    // This wrapper sits between `.wt-page` and the tool's own markup, so without
+    // it the chain breaks here: the page fills the viewport, but this div stays
+    // at content height, and a split pane inside it can only fill that — which
+    // is why the JSON formatter's input sat at its 360 px minimum inside an
+    // ~800 px column. Fixing it here repairs every tool at once instead of
+    // adding a class to each of the 24 that use a split layout.
+    flex: '1 1 auto',
     minHeight: 0,
   },
   missing: {
