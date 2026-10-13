@@ -366,8 +366,8 @@ function SignatureCard({ signature, index }: { signature: SignatureInfo; index: 
       )}
 
       <Caption1 className={styles.notice}>
-        /Contents 里是 {signature.contentsBytes ?? '未知'}
-        字节的 CMS 数据，本工具**没有打开它**：签名值、证书、时间戳都没有被解析或验证。
+        /Contents 里是 {signature.contentsBytes ?? '未知'} 字节的 CMS 数据，本工具
+        <strong>没有打开它</strong>：签名值、证书、时间戳都没有被解析或验证。
         {signature.otherKeys.length > 0 && ` 另有本工具未解读的键：${signature.otherKeys.join('、')}。`}
       </Caption1>
     </div>
@@ -388,7 +388,8 @@ function NoVerificationNotice() {
       <MessageBarBody>
         <MessageBarTitle>本工具只读结构，不做密码学验证</MessageBarTitle>
         <div className={styles.notice}>
-          它不会、也无法回答“这个签名是否有效”。具体来说，下面这些**一律没有做**：
+          它不会、也无法回答“这个签名是否有效”。具体来说，下面这些
+          <strong>一律没有做</strong>：
           <ul className={styles.list}>
             <li>不解析签名值本身（不打开 CMS / PKCS#7，不算摘要，不验签名数学）</li>
             <li>不验证书链、不判断证书是否可信、是否过期、是否被吊销</li>

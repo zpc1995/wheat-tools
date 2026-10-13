@@ -452,13 +452,12 @@ export interface PdfDict {
   entries: Map<string, PdfValue>;
   start: number;
   end: number;
+  /**
+   * Offset of the first byte of stream data, or null when this dictionary is not
+   * followed by a stream. Recorded because finding it is where an off-by-one hides:
+   * the line break after the `stream` keyword belongs to the syntax, not the data.
+   */
   streamStart: number | null;
-  streamEnd: number | null;
-}
-
-export interface PdfOpaque {
-  kind: 'opaque';
-  raw: string;
 }
 
 export type PdfValue =
@@ -469,8 +468,7 @@ export type PdfValue =
   | PdfBool
   | PdfNull
   | PdfArray
-  | PdfDict
-  | PdfOpaque;
+  | PdfDict;
 
 export interface PdfIndirectObject {
   num: number;
@@ -627,44 +625,20 @@ class Parser {
       if (entries.size > 20_000) break;
     }
 
-    const dict: PdfDict = {
+    return {
       kind: 'dict',
       entries,
       start,
       end: cursor,
-      streamStart: null,
-      streamEnd: null,
+      streamStart: this.streamStart(cursor),
     };
-    this.readStreamBounds(dict);
-    return dict;
   }
 
-  /**
-   * Attaches the stream extent to a dictionary that is followed by `stream`.
-   *
-   * `/Length` is preferred but can be an indirect reference or simply wrong in a
-   * damaged file, so the measurement is validated by checking that `endstream`
-   * really follows; when it does not, the keyword is searched for instead. That
-   * fallback is why a truncated file still yields usable dictionary data.
-   */
-  private readStreamBounds(dict: PdfDict): void {
-    const after = this.lexer.skipTrivia(dict.end);
-    if (!this.text.startsWith('stream', after)) return;
-    const contentStart = streamContentStart(this.text, after + 6);
-
-    const length = dict.entries.get('Length');
-    const declared =
-      length && length.kind === 'number' && Number.isInteger(length.value) && length.value >= 0
-        ? length.value
-        : null;
-
-    let end = declared !== null ? contentStart + declared : -1;
-    if (end < 0 || end > this.text.length || !this.text.startsWith('endstream', this.lexer.skipTrivia(end))) {
-      const found = this.text.indexOf('endstream', contentStart);
-      end = found === -1 ? this.text.length : found;
-    }
-    dict.streamStart = contentStart;
-    dict.streamEnd = end;
+  /** Where stream data begins, or null when no `stream` keyword follows. */
+  private streamStart(dictEnd: number): number | null {
+    const after = this.lexer.skipTrivia(dictEnd);
+    if (!this.text.startsWith('stream', after)) return null;
+    return streamContentStart(this.text, after + 'stream'.length);
   }
 }
 
@@ -1531,7 +1505,7 @@ function collectSignatureDicts(
 
 /** A placeholder for a `/V` that references an object the file does not contain. */
 function emptyDict(): PdfDict {
-  return { kind: 'dict', entries: new Map(), start: -1, end: -1, streamStart: null, streamEnd: null };
+  return { kind: 'dict', entries: new Map(), start: -1, end: -1, streamStart: null };
 }
 
 const KNOWN_SIGNATURE_KEYS = new Set([
