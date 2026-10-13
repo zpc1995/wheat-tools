@@ -483,7 +483,14 @@ const YAML_CORPUS = [
 
 section('0. 权威参照物可用性');
 
-checkTrue('python3 + PyYAML + tomllib 可用（本脚本的权威参照物）', PY_AVAILABLE);
+// Reported as a SKIP, not an assertion.
+//
+// This used to be `checkTrue(...)`, which made a missing oracle count as a
+// failure while the rest of the script printed "assertions skipped" — so the
+// suite exited 1 on any machine without PyYAML and the release job stopped. A
+// check that cannot run must be visibly skipped, never reported as a pass *or*
+// as a failure; that is the convention the other scripts here already follow
+// (systemd-analyze, pyfiglet, python3 mimetypes).
 if (PY_AVAILABLE) {
   const versions = spawnSync(
     'python3',
@@ -491,11 +498,19 @@ if (PY_AVAILABLE) {
     { encoding: 'utf8' },
   ).stdout.trim();
   console.log(`      参照物版本：Python ${versions}`);
+} else {
+  console.log('SKIP  python3 + PyYAML + tomllib 不可用 —— 引用参照物的断言未运行，');
+  console.log('      因此本次只验证了不依赖 Python 的那部分（不是「通过」）。');
+  console.log('      安装方式：python3 -m pip install pyyaml（需要 Python 3.11+ 的 tomllib）');
 }
 
 // The exact call the task asks for, spelled out: hand the tool's YAML to
 // python3 -c and compare the structure it produces.
-{
+//
+// Guarded, because it shells out to PyYAML directly rather than going through
+// the helper the rest of the script uses — an unguarded call here was the second
+// reason a machine without PyYAML reported a failure instead of a skip.
+if (PY_AVAILABLE) {
   const yaml = 'a: 1\nb:\n  - x\n  - y\n';
   const run = spawnSync(
     'python3',

@@ -88,6 +88,24 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
+      - name: Provide the Python oracles
+        # Several checks compare against CPython's own libraries — `tomllib` and
+        # `mimetypes` ship with Python, but PyYAML does not, and the YAML
+        # oracle is the whole point of the TOML/YAML check. Without it that check
+        # still passes but skips its strongest assertions, so a release would be
+        # gated on a weaker suite than the one that runs locally.
+        #
+        # A venv rather than `pip install --break-system-packages`: the runner's
+        # Python is externally managed, and putting the venv's bin first on PATH
+        # makes `python3` resolve to the interpreter that has `yaml`.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pyoracle"
+          "$RUNNER_TEMP/pyoracle/bin/pip" install --quiet --upgrade pip
+          "$RUNNER_TEMP/pyoracle/bin/pip" install --quiet pyyaml
+          echo "$RUNNER_TEMP/pyoracle/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/pyoracle/bin/python3" -c \
+            'import sys, yaml, tomllib; print("Python", sys.version.split()[0], "PyYAML", yaml.__version__)'
+
       - name: Run the logic check suite
         # The browser-driven checks are excluded: this runner has no Chromium,
         # and a check that cannot run must not be reported as passing. They run
