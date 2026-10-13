@@ -655,6 +655,39 @@ section('反证：按行 split 的朴素 TOML 解析器会搞错数组表');
   check('真实结果是嵌套表', M.parseToml(dotted).value, { a: { b: 1 } });
 }
 
+
+console.log('\n--- 原型污染（安全回归）---');
+{
+  // A `[__proto__]` header used to replace the prototype of the table being
+  // built, which wrote straight onto `Object.prototype`. Every tool in this app
+  // shares one realm, so a pasted document could have affected unrelated tools.
+  const hadX = Object.prototype.x;
+  const tablePollution = M.parseToml('a = 1\n[__proto__]\nx = 2');
+  check('解析 [__proto__] 表头后 Object.prototype 未被写入', Object.prototype.x, hadX);
+  check('[__proto__] 表头仍然解析成功（不是靠拒绝输入来规避）', tablePollution.ok, true);
+
+  const scalar = M.parseToml('__proto__ = 1');
+  check('标量 __proto__ 键被保留为自身属性而不是丢弃', Object.keys(scalar.value ?? {}), ['__proto__']);
+  check('标量 __proto__ 的值可读', scalar.value?.['__proto__'], 1);
+
+  const nested = M.parseToml('[a]\n__proto__ = "v"\n[b]\nc = 2');
+  check('嵌套表里的 __proto__ 也是自身属性', Object.keys(nested.value?.a ?? {}), ['__proto__']);
+  check('相邻的普通表不受影响', nested.value?.b?.c, 2);
+
+  // Other keys that reach through the prototype chain.
+  check('constructor 键不会破坏解析', M.parseToml('constructor = 1').value?.['constructor'], 1);
+  check('prototype 键不会破坏解析', M.parseToml('prototype = 1').value?.['prototype'], 1);
+  check('解析 without 原型不影响 JSON 序列化', JSON.stringify(M.parseToml('a = 1\nb = "x"').value), '{"a":1,"b":"x"}');
+
+  // Prove the assertion above has teeth: the naive `{}` shape really is unsafe.
+  // If this stops failing, the guard has become vacuous.
+  const naive = {};
+  // eslint-disable-next-line no-proto
+  naive['__proto__'] = { polluted: true };
+  const naivePolluted = ({}).polluted === true || Object.getPrototypeOf(naive) !== Object.prototype;
+  check('反证：朴素 {} 写法确实会被 __proto__ 改写原型（证明上面的断言有意义）', naivePolluted, true);
+}
+
 console.log(`\n${passed}/${passed + failed} passed${failed ? `, ${failed} FAILED` : ''}`);
 console.log(pythonAvailable ? '（python3 tomllib 参照物已启用）' : '（python3 tomllib 不可用，已跳过比对）');
 process.exit(failed === 0 ? 0 : 1);

@@ -66,6 +66,24 @@ export function isTomlTag(value: unknown): value is TomlTagged {
   );
 }
 
+/**
+ * Creates a table object with no prototype.
+ *
+ * A plain `{}` is unsafe here: `table['__proto__'] = x` does not create a
+ * property, it triggers the inherited setter and *replaces the prototype*, so a
+ * document containing a `[__proto__]` header wrote onto `Object.prototype` and
+ * polluted every object in the page. Because the whole app is one realm, a
+ * pasted document could then affect unrelated tools. A null-prototype object has
+ * no such setter, so `__proto__` is stored as an ordinary own key — which is
+ * also what TOML says it is.
+ *
+ * `isPlainObject` below is duck-typed and `tableMeta` uses a WeakMap, so both
+ * keep working with null-prototype tables.
+ */
+function createTable(): TomlObject {
+  return Object.create(null) as TomlObject;
+}
+
 function isPlainObject(value: unknown): value is TomlObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && !isTomlTag(value);
 }
@@ -139,7 +157,7 @@ export interface TomlParseResult {
 class TomlParser {
   private readonly src: string;
   private pos = 0;
-  private readonly root: TomlObject = {};
+  private readonly root: TomlObject = createTable();
   private current: TomlObject = this.root;
   private currentPath = '';
   private readonly meta = new WeakMap<object, TableMeta>();
@@ -306,7 +324,7 @@ class TomlParser {
       const label = path.slice(0, i + 1).join(TAG_PATH_SEPARATOR);
       const next = node[key];
       if (next === undefined) {
-        const created: TomlObject = {};
+        const created: TomlObject = createTable();
         node[key] = created;
         node = created;
         continue;
@@ -335,7 +353,7 @@ class TomlParser {
 
     if (!array) {
       if (existing === undefined) {
-        const created: TomlObject = {};
+        const created: TomlObject = createTable();
         node[lastKey] = created;
         this.tableMeta(created).header = true;
         this.current = created;
@@ -367,7 +385,7 @@ class TomlParser {
       } else {
         this.fail(`"${label}" 已经是一个值，不能改成数组表`);
       }
-      const element: TomlObject = {};
+      const element: TomlObject = createTable();
       list.push(element);
       this.current = element;
     }
@@ -397,7 +415,7 @@ class TomlParser {
       const key = path[i];
       const next = node[key];
       if (next === undefined) {
-        const created: TomlObject = {};
+        const created: TomlObject = createTable();
         this.tableMeta(created).dotted = true;
         this.tableMeta(node).keys.add(key);
         node[key] = created;
@@ -476,7 +494,7 @@ class TomlParser {
 
   private parseInlineTable(depth: number): TomlObject {
     this.expect('{');
-    const table: TomlObject = {};
+    const table: TomlObject = createTable();
     this.tableMeta(table);
     this.skipInlineWs();
     if (this.peek() === '}') {
