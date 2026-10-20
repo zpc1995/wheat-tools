@@ -1038,3 +1038,109 @@ export function decontaminateEdges(
   }
   return { background: background.map(Math.round) as [number, number, number], touched };
 }
+
+/* ------------------------------------------------------------------ *
+ * Edge colour propagation and matte tightening
+ * ------------------------------------------------------------------ */
+
+/**
+ * Replaces the colour of non-solid pixels with the nearest solid foreground
+ * colour, working outward from the subject.
+ *
+ * Un-mixing alone cannot fix a seam when the model overestimates alpha: a pixel
+ * that is really 30% hair but is reported as 50% yields an un-mixed colour that
+ * is still pale, and compositing that over a coloured background leaves a light
+ * rim. Where there is little or no subject in a pixel there is no foreground
+ * colour to recover, so the only honest answer is the nearby one that is
+ * definitely foreground — hair colour next to hair.
+ *
+ * Breadth-first from the solid pixels, so the cost is linear in the number of
+ * edge pixels rather than in image area times distance. Pixels the propagation
+ * never reaches keep their original colour.
+ */
+export function propagateForegroundColors(
+  pixels: Uint8ClampedArray,
+  alpha: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options: { solidAlpha?: number; maxDistance?: number } = {},
+): { filled: number; distance: number } {
+  const total = Math.min(alpha.length, Math.floor(pixels.length / 4), width * height);
+  if (total === 0 || width <= 0 || height <= 0) {
+    return { filled: 0, distance: 0 };
+  }
+  const solid = clamp(options.solidAlpha ?? 0.85, 0, 1) * 255;
+  const maxDistance = Math.max(1, Math.floor(options.maxDistance ?? 24));
+
+  const visited = new Uint8Array(total);
+  let frontier: number[] = [];
+  for (let index = 0; index < total; index += 1) {
+    if (alpha[index] >= solid) {
+      visited[index] = 1;
+      frontier.push(index);
+    }
+  }
+  if (frontier.length === 0) return { filled: 0, distance: 0 };
+
+  // Width and height are parameters, not derived: inferring the width from
+  // `sqrt(pixelCount)` happens to work on a square test fixture and silently
+  // walks the wrong neighbours on a real 1378x1280 photo.
+  let filled = 0;
+  let distance = 0;
+  for (let step = 0; step < maxDistance && frontier.length > 0; step += 1) {
+    const next: number[] = [];
+    for (const index of frontier) {
+      const x = index % width;
+      const y = (index - x) / width;
+      const neighbours = [
+        x > 0 ? index - 1 : -1,
+        x + 1 < width ? index + 1 : -1,
+        y > 0 ? index - width : -1,
+        y + 1 < height ? index + width : -1,
+      ];
+      for (const neighbour of neighbours) {
+        if (neighbour < 0 || visited[neighbour] === 1) continue;
+        visited[neighbour] = 1;
+        const from = index * 4;
+        const to = neighbour * 4;
+        pixels[to] = pixels[from];
+        pixels[to + 1] = pixels[from + 1];
+        pixels[to + 2] = pixels[from + 2];
+        next.push(neighbour);
+        filled += 1;
+      }
+    }
+    if (next.length > 0) distance = step + 1;
+    frontier = next;
+  }
+  return { filled, distance };
+}
+
+/**
+ * Narrows the matte's transition band.
+ *
+ * The model's alpha ramps over several pixels. At a one-inch output (295 px
+ * wide) that ramp is a visible fraction of the whole photo and reads as a blurry
+ * outline no matter what colour it carries. A contrast curve around 0.5 keeps the
+ * softness where it belongs — a pixel that is nearly half subject stays half —
+ * while pulling the long tail of small values towards zero.
+ *
+ * A strength of 1 is a no-op; higher values tighten further.
+ */
+export function tightenAlpha(
+  alpha: Uint8ClampedArray,
+  strength = 2.4,
+): Uint8ClampedArray {
+  const amount = Math.max(0, Number.isFinite(strength) ? strength : 1);
+  const output = new Uint8ClampedArray(alpha.length);
+  if (amount === 1) {
+    output.set(alpha);
+    return output;
+  }
+  for (let index = 0; index < alpha.length; index += 1) {
+    const t = alpha[index] / 255;
+    const tightened = (t - 0.5) * amount + 0.5;
+    output[index] = Math.round(clamp(tightened, 0, 1) * 255);
+  }
+  return output;
+}

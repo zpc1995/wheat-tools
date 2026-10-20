@@ -21,11 +21,31 @@ const ts = require('typescript');
 
 mkdirSync('.verify', { recursive: true });
 
+/**
+ * Transpiles one tool module and rewrites its relative imports.
+ *
+ * Each module is emitted to `.verify/id-photo-<name>.mjs`, so a plain
+ * `from './mattingUtils'` inside a transpiled file would not resolve. Rewriting
+ * the specifier keeps the check running against the real source rather than
+ * against a copy with imports stripped.
+ */
+const MODULE_OUTPUT = {
+  'photoSpecs.ts': 'specs',
+  'mattingUtils.ts': 'matting',
+  'aiMatting.ts': 'ai',
+  'exportUtils.ts': 'export',
+};
+
 const loadModule = async (file, name) => {
   const source = readFileSync(`src/tools/id-photo/${file}`, 'utf8');
-  const compiled = ts.transpileModule(source, {
+  let compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   }).outputText;
+  for (const [target, alias] of Object.entries(MODULE_OUTPUT)) {
+    if (target === file) continue;
+    const stem = target.replace(/\.ts$/, '');
+    compiled = compiled.split(`'./${stem}'`).join(`'./id-photo-${alias}.mjs'`);
+  }
   const output = `.verify/id-photo-${name}.mjs`;
   writeFileSync(output, compiled);
   return import(pathToFileURL(output).href);
@@ -1627,6 +1647,94 @@ console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 -
   const edge = make([[255,255,255],[255,255,255]], [0, 250]);
   matting.decontaminateEdges(edge.px, edge.al);
   check('接近不透明的像素基本不动', Math.abs(edge.px[4] - 255) <= 6, true);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Foreground colour propagation and matte tightening
+ * ------------------------------------------------------------------ */
+{
+  // 4x4 image: the left half is solid foreground, the right half is backdrop
+  // colour that must be replaced by the nearby foreground colour.
+  const W = 4, H = 4;
+  const px = new Uint8ClampedArray(W * H * 4);
+  const al = new Uint8ClampedArray(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const solid = x < 2;
+      px[i*4] = solid ? 30 : 240;
+      px[i*4+1] = solid ? 20 : 240;
+      px[i*4+2] = solid ? 10 : 240;
+      al[i] = solid ? 255 : 12;
+    }
+  }
+  const prop = matting.propagateForegroundColors(px, al, W, H, { maxDistance: 4 });
+  check('扩散填充了非实心像素', prop.filled > 0, true);
+  check('扩散后右侧被染成前景色', [px[(2)*4], px[(2)*4+1], px[(2)*4+2]], [30, 20, 10]);
+  check('最右侧也被染到（距离足够）', px[(3)*4], 30);
+  check('alpha 不被扩散改动', [al[2], al[3]], [12, 12]);
+
+  // Non-square geometry must be honoured: a width guessed from sqrt() would walk
+  // the wrong neighbours and this row would stay backdrop-coloured.
+  const W2 = 6, H2 = 2;
+  const px2 = new Uint8ClampedArray(W2 * H2 * 4);
+  const al2 = new Uint8ClampedArray(W2 * H2);
+  for (let i = 0; i < W2 * H2; i++) {
+    const solid = i === 0;
+    px2[i*4] = solid ? 10 : 250; px2[i*4+1] = solid ? 10 : 250; px2[i*4+2] = solid ? 10 : 250;
+    al2[i] = solid ? 255 : 20;
+  }
+  matting.propagateForegroundColors(px2, al2, W2, H2, { maxDistance: 6 });
+  check('非正方形图按真实宽度扩散', px2[(W2-1)*4], 10);
+
+  // No solid pixels: nothing to propagate from, nothing changes.
+  const flat = new Uint8ClampedArray(16);
+  const flatAlpha = new Uint8ClampedArray(4).fill(10);
+  const none = matting.propagateForegroundColors(flat, flatAlpha, 2, 2);
+  check('没有实心像素时不做扩散', none.filled, 0);
+
+  // Tightening: 1 is identity, higher pulls the tails to the ends, 0.5 stays 0.5.
+  const ramp = new Uint8ClampedArray([0, 64, 128, 192, 255]);
+  check('strength 1 是恒等', Array.from(matting.tightenAlpha(ramp, 1)), [0, 64, 128, 192, 255]);
+  const tight = Array.from(matting.tightenAlpha(ramp, 2.4));
+  check('收紧后两端仍是 0 与 255', [tight[0], tight[4]], [0, 255]);
+  // 128/255 is not exactly 0.5, so the midpoint may land one step away.
+  check('收紧后中点基本不动', Math.abs(tight[2] - 128) <= 1, true);
+  check('收紧后低值被压得更低', tight[1] < 64, true);
+  check('收紧后高值被抬得更高', tight[3] > 192, true);
+  check('收紧不改变长度', matting.tightenAlpha(ramp, 2.4).length, ramp.length);
+
+  // The default must actually do something (a silent 1 would disable the fix).
+  check('默认收紧强度大于 1', ai.DEFAULT_TIGHTEN > 1, true);
+
+  // On the synthetic hard image, tightening plus propagation must reduce the
+  // number of "brighter than the backdrop" edge pixels. This ties the two
+  // helpers to the defect they exist for.
+  const hardW = 40, hardH = 40;
+  const hp = new Uint8ClampedArray(hardW * hardH * 4);
+  const ha = new Uint8ClampedArray(hardW * hardH);
+  for (let y = 0; y < hardH; y++) {
+    for (let x = 0; x < hardW; x++) {
+      const i = y * hardW + x;
+      const inside = (x - 20) ** 2 + (y - 20) ** 2 < 100;
+      // A soft ring: partial alpha carrying the light backdrop colour.
+      const t = ((x - 20) ** 2 + (y - 20) ** 2) ** 0.5;
+      const a = inside ? 255 : t < 12 ? Math.round(255 * (1 - (t - 10) / 2)) : 0;
+      hp[i*4] = inside ? 40 : 235; hp[i*4+1] = inside ? 30 : 235; hp[i*4+2] = inside ? 25 : 235;
+      ha[i] = Math.max(0, Math.min(255, a));
+    }
+  }
+  const before = Array.from(ha);
+  matting.propagateForegroundColors(hp, ha, hardW, hardH, { maxDistance: 6 });
+  const tightened = matting.tightenAlpha(ha, 2.4);
+  let bandBefore = 0, bandAfter = 0;
+  for (let i = 0; i < ha.length; i++) {
+    if (before[i] > 8 && before[i] < 247) bandBefore++;
+    if (tightened[i] > 8 && tightened[i] < 247) bandAfter++;
+  }
+  check('收紧确实缩窄了过渡带', bandAfter < bandBefore, true);
+  check('扩散把边缘像素染成前景色', hp[(20*hardW + 12)*4] < 100, true);
 }
 
 console.log(

@@ -54,6 +54,7 @@ import {
   applyBrushStrokes,
   decontaminateEdges,
   mattePortrait,
+  propagateForegroundColors,
   type BrushMode,
   type BrushStroke,
   type MattingResult,
@@ -178,9 +179,13 @@ function buildCutout(
   if (!context) return canvas;
   const pixels = new Uint8ClampedArray(source.imageData.data);
   const limit = Math.min(alpha.length, source.workWidth * source.workHeight);
-  // Un-mix the original backdrop from the edge colours *before* applying alpha.
-  // Without this the cutout carries a rim of the old background, which shows as
-  // a bright halo once it sits on a coloured ID background.
+  // Repair the edge colours before the alpha is applied, in two steps:
+  //   1. copy the nearest solid foreground colour outward, because where a pixel
+  //      is mostly backdrop there is no foreground colour to un-mix;
+  //   2. un-mix the backdrop from the pixels that are genuinely a blend.
+  // Skipping either step leaves a rim of the old background, which is visible as
+  // a light halo the moment the cutout sits on a coloured ID background.
+  propagateForegroundColors(pixels, alpha, source.workWidth, source.workHeight);
   decontaminateEdges(pixels, alpha);
   for (let index = 0; index < limit; index += 1) {
     const alphaOffset = index * 4 + 3;
