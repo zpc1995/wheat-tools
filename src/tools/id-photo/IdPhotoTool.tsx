@@ -9,6 +9,7 @@ import {
   MessageBarTitle,
   Option,
   OptionGroup,
+  ProgressBar,
   Slider,
   Tab,
   TabList,
@@ -57,6 +58,12 @@ import {
   type MattingResult,
 } from './mattingUtils';
 import {
+  disposeAiMattingSession,
+  isAiMattingSupported,
+  matteWithAi,
+  matteWithFallback,
+} from './aiMatting';
+import {
   encodeWithinTarget,
   formatFileSize,
   targetBytesFromKb,
@@ -76,6 +83,14 @@ const NO_RETOUCH_NOTE = '本工具不做人脸美化、不改变五官。';
 const SIZE_DISCLAIMER = '常用规格，具体以受理机构要求为准。';
 
 type PreviewMode = 'background' | 'checker' | 'alpha';
+
+/**
+ * `ready` means the AI mask is on screen; `fallback` means the switch is on but
+ * the classic algorithm produced the current mask because the model could not
+ * be used. Keeping those two apart is what lets the UI explain itself instead
+ * of silently changing the output.
+ */
+type AiModeStatus = 'off' | 'loading' | 'inferencing' | 'ready' | 'fallback';
 
 interface SourceImage {
   name: string;
@@ -358,6 +373,18 @@ const useStyles = makeStyles({
     gap: '10px',
     width: '100%',
   },
+  aiBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    width: '100%',
+  },
+  aiStatus: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    width: '100%',
+  },
   controlRow: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -446,6 +473,9 @@ export function IdPhotoTool() {
   const [brushSize, setBrushSize] = useState(28);
   const [strokes, setStrokes] = useState<BrushStroke[]>([]);
   const [matte, setMatte] = useState<MattingResult | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiModeStatus>('off');
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState('');
@@ -456,6 +486,13 @@ export function IdPhotoTool() {
   const guide = faceGuideForSpec(spec);
   const guideLines = faceGuideLines(guide);
   const sheetLayout = useMemo(() => layoutSheet(spec), [spec]);
+  const usingAi = aiEnabled && aiStatus === 'ready';
+  // The two sliders only steer the classic pipeline. While the AI mask is being
+  // prepared or is in use they would do nothing, so they are disabled instead
+  // of silently changing a value that the current result ignores.
+  const aiControlsLocked =
+    aiEnabled &&
+    (aiStatus === 'loading' || aiStatus === 'inferencing' || aiStatus === 'ready');
 
   const loadFile = useCallback(async (file: File) => {
     setBusy(true);
@@ -524,18 +561,76 @@ export function IdPhotoTool() {
   useEffect(() => {
     if (!source) {
       setMatte(null);
+      setAiStatus('off');
+      setAiNotice(null);
       return;
     }
-    const result = mattePortrait(
-      {
-        data: source.imageData.data,
-        width: source.workWidth,
-        height: source.workHeight,
-      },
-      { tolerance, feather },
-    );
-    setMatte(result);
-  }, [source, tolerance, feather]);
+    let cancelled = false;
+    const image = {
+      data: source.imageData.data,
+      width: source.workWidth,
+      height: source.workHeight,
+    };
+    const runClassic = () =>
+      mattePortrait(image, { tolerance, feather });
+
+    if (!aiEnabled) {
+      setMatte(runClassic());
+      setAiStatus('off');
+      setAiNotice(null);
+      return;
+    }
+
+    setAiStatus('loading');
+    setAiNotice(null);
+    // Show the classic mask while the model loads. It keeps the preview
+    // coherent when the photo just changed, and it is exactly what the fallback
+    // would show, so it is computed once and reused on failure instead of being
+    // thrown away.
+    const classicResult = runClassic();
+    setMatte(classicResult);
+    void (async () => {
+      try {
+        const outcome = await matteWithFallback({
+          useAi: true,
+          supported: isAiMattingSupported(),
+          runClassic: () => classicResult,
+          runAi: () =>
+            matteWithAi(image, {
+              onPhase: (phase) => {
+                if (cancelled) return;
+                setAiStatus(phase === 'inference' ? 'inferencing' : 'loading');
+              },
+            }),
+        });
+        if (cancelled) return;
+        setMatte(outcome.result);
+        setAiStatus(outcome.usedAi ? 'ready' : 'fallback');
+        setAiNotice(outcome.notice);
+      } catch (caught) {
+        if (cancelled) return;
+        // Reaching this branch means even the classic pass threw, which is a
+        // real error rather than a reason to fall back silently.
+        setMatte(null);
+        setAiStatus('fallback');
+        setAiNotice(null);
+        setError(caught instanceof Error ? caught.message : '抠图失败。');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [source, tolerance, feather, aiEnabled]);
+
+  // Release the wasm session when the tool is closed. Toggling the switch off
+  // keeps it, so turning AI back on does not download the model again.
+  useEffect(
+    () => () => {
+      void disposeAiMattingSession();
+    },
+    [],
+  );
 
   const alpha = useMemo(() => {
     if (!source || !matte) return null;
@@ -1023,8 +1118,8 @@ export function IdPhotoTool() {
                     </li>
                     <li>
                       <Caption1 className={styles.hint}>
-                        头发边缘、半透明衣物、与背景同色的衣服是传统算法的难点，
-                        涂不干净时用「恢复」画笔补回来。
+                        头发边缘、半透明衣物、与背景同色的衣服是传统算法的难点；
+                        复杂背景可以打开 AI 抠图，仍有残留时用「恢复」画笔补回来。
                       </Caption1>
                     </li>
                     <li>
@@ -1108,18 +1203,38 @@ export function IdPhotoTool() {
                       </Caption1>
                       {matte && (
                         <Caption1 className={styles.mono}>
-                          背景簇 {matte.stats.clusters} · 阈值{' '}
-                          {matte.stats.lowThreshold.toFixed(1)} –{' '}
-                          {matte.stats.highThreshold.toFixed(1)} · 前景{' '}
-                          {Math.round(matte.stats.foregroundRatio * 100)}%
+                          {usingAi ? (
+                            <>
+                              MODNet 本地模型 · 前景{' '}
+                              {Math.round(matte.stats.foregroundRatio * 100)}% ·
+                              可用画笔继续修整
+                            </>
+                          ) : (
+                            <>
+                              背景簇 {matte.stats.clusters} · 阈值{' '}
+                              {matte.stats.lowThreshold.toFixed(1)} –{' '}
+                              {matte.stats.highThreshold.toFixed(1)} · 前景{' '}
+                              {Math.round(matte.stats.foregroundRatio * 100)}%
+                            </>
+                          )}
                         </Caption1>
                       )}
                       {matte && !matte.stats.subjectFound && (
                         <MessageBar intent="warning">
                           <MessageBarBody>
-                            没有检测到明确的主体：画面可能整张都是背景，或者
-                            主体和背景的颜色太接近。可以调大容差、换一张照片，
-                            或者直接用「恢复」画笔手工补出人物。
+                            {usingAi ? (
+                              <>
+                                本地 AI 模型没有在这个画面里找到明确的人像：
+                                可能是纯背景图，或者人物离镜头太远。可以换一张照片，
+                                或者直接用「恢复」画笔手工补出人物。
+                              </>
+                            ) : (
+                              <>
+                                没有检测到明确的主体：画面可能整张都是背景，或者
+                                主体和背景的颜色太接近。可以调大容差、换一张照片，
+                                或者直接用「恢复」画笔手工补出人物。
+                              </>
+                            )}
                           </MessageBarBody>
                         </MessageBar>
                       )}
@@ -1149,6 +1264,44 @@ export function IdPhotoTool() {
               >
                 <div className={styles.surfaceBody}>
                   <div className={styles.controls}>
+                    <div className={styles.aiBlock}>
+                      <Checkbox
+                        checked={aiEnabled}
+                        label="AI 抠图（本地模型，首次约 12 MB）"
+                        aria-label="AI 抠图（本地模型）"
+                        onChange={(_event, data) =>
+                          setAiEnabled(data.checked === true)
+                        }
+                      />
+                      <Caption1 className={styles.hint}>
+                        使用 MODNet 模型在浏览器内完成推理。模型下载后由浏览器缓存；
+                        推理全部在本机完成，图片不会离开这台设备。
+                        复杂背景与发丝边缘的效果明显好于本地算法。
+                      </Caption1>
+                      {aiEnabled &&
+                        (aiStatus === 'loading' ||
+                          aiStatus === 'inferencing') && (
+                          <div className={styles.aiStatus}>
+                            <ProgressBar />
+                            <Caption1 className={styles.hint}>
+                              {aiStatus === 'loading'
+                                ? '正在准备 AI 模型（约 12 MB，首次较慢，下载后由浏览器缓存）…'
+                                : 'AI 正在本机推理…'}
+                            </Caption1>
+                          </div>
+                        )}
+                      {usingAi && (
+                        <Caption1 className={styles.hint}>
+                          AI 抠图已生效；下面的画笔仍可擦除或恢复，导出流程与本地算法完全相同。
+                        </Caption1>
+                      )}
+                      {aiEnabled && aiStatus === 'fallback' && aiNotice && (
+                        <MessageBar intent="warning">
+                          <MessageBarBody>{aiNotice}</MessageBarBody>
+                        </MessageBar>
+                      )}
+                    </div>
+
                     <div className={styles.controlRow}>
                       <Caption1 className={styles.controlLabel}>
                         容差 ×{tolerance.toFixed(2)}
@@ -1161,10 +1314,12 @@ export function IdPhotoTool() {
                           value={Math.round(tolerance * 100)}
                           onChange={(_, data) => setTolerance(data.value / 100)}
                           aria-label="容差，数值越大越多颜色被当作背景"
-                          disabled={!source}
+                          disabled={!source || aiControlsLocked}
                         />
                       </div>
-                      <Caption1 className={styles.hint}>调大＝背景判定更宽松</Caption1>
+                      <Caption1 className={styles.hint}>
+                        {usingAi ? 'AI 模式下由模型决定' : '调大＝背景判定更宽松'}
+                      </Caption1>
                     </div>
 
                     <div className={styles.controlRow}>
@@ -1179,10 +1334,12 @@ export function IdPhotoTool() {
                           value={feather}
                           onChange={(_, data) => setFeather(data.value)}
                           aria-label="边缘羽化半径（像素）"
-                          disabled={!source}
+                          disabled={!source || aiControlsLocked}
                         />
                       </div>
-                      <Caption1 className={styles.hint}>让边缘过渡更柔和</Caption1>
+                      <Caption1 className={styles.hint}>
+                        {usingAi ? 'AI 模式下由模型决定' : '让边缘过渡更柔和'}
+                      </Caption1>
                     </div>
 
                     <div className={styles.controlRow}>

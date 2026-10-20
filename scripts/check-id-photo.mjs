@@ -12,7 +12,7 @@
  *
  * Usage: node scripts/check-id-photo.mjs
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
@@ -33,6 +33,7 @@ const loadModule = async (file, name) => {
 
 const specs = await loadModule('photoSpecs.ts', 'specs');
 const matting = await loadModule('mattingUtils.ts', 'matting');
+const ai = await loadModule('aiMatting.ts', 'ai');
 const exporting = await loadModule('exportUtils.ts', 'export');
 
 let passed = 0;
@@ -83,6 +84,21 @@ function checkAtMost(label, actual, maximum) {
     ok,
     label,
     `got      ${actual}\n        expected ≤ ${maximum}`,
+  );
+}
+
+function checkThrows(label, run, fragment) {
+  let message = null;
+  try {
+    run();
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  const ok = typeof message === 'string' && message.includes(fragment);
+  record(
+    ok,
+    label,
+    `got      ${JSON.stringify(message)}\n        expected to include ${JSON.stringify(fragment)}`,
   );
 }
 
@@ -248,6 +264,282 @@ console.log('--- 子函数：边框、软阈值、泛洪、连通域、形态学
     [{ x: 3, y: 3, radius: 2, mode: 'restore', hardness: 1 }],
   );
   check('恢复画笔把中心补回前景', restored[3 * 7 + 3], 255);
+}
+
+console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）---');
+{
+  const SIZE = 256;
+  const PLANE = SIZE * SIZE;
+  const rgba = (width, height, pixelAt) => {
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const [r, g, b, a] = pixelAt(x, y);
+        const offset = (y * width + x) * 4;
+        data[offset] = r;
+        data[offset + 1] = g;
+        data[offset + 2] = b;
+        data[offset + 3] = a;
+      }
+    }
+    return data;
+  };
+  // The same arithmetic the implementation documents: RGB/255, then to [-1,1].
+  const shade = (value) => (value / 255) * 2 - 1;
+
+  const single = ai.buildInputTensor(rgba(1, 1, () => [10, 20, 30, 255]), 1, 1);
+  check('输入张量长度为 3 × 256 × 256', single.data.length, PLANE * 3);
+  check('输入张量形状为 [1,3,256,256]', single.dims, [1, 3, 256, 256]);
+  check('输入张量的宽高是 256', [single.width, single.height], [SIZE, SIZE]);
+
+  const expected = [shade(10), shade(20), shade(30)];
+  for (let channel = 0; channel < 3; channel += 1) {
+    const slice = single.data.subarray(channel * PLANE, (channel + 1) * PLANE);
+    checkTrue(
+      `单像素输入的第 ${channel} 通道全是手算值`,
+      slice.every((value) => Math.abs(value - expected[channel]) <= 1e-6),
+      `first=${slice[0]}, expected=${expected[channel]}`,
+    );
+  }
+
+  // Four colours in a 2x2 image. At this scale each source pixel occupies a
+  // large block, so the corners are pure colours and can be checked exactly.
+  const quadPixels = [
+    [255, 0, 0, 255],
+    [0, 255, 0, 255],
+    [0, 0, 255, 255],
+    [255, 255, 255, 255],
+  ];
+  const quad = ai.buildInputTensor(
+    rgba(2, 2, (x, y) => quadPixels[y * 2 + x]),
+    2,
+    2,
+  );
+  const at = (channel, x, y) => quad.data[channel * PLANE + y * SIZE + x];
+  check('2×2 左上角是纯红', [at(0, 10, 10), at(1, 10, 10), at(2, 10, 10)], [1, -1, -1]);
+  check('2×2 右上角是纯绿', [at(0, 246, 10), at(1, 246, 10), at(2, 246, 10)], [-1, 1, -1]);
+  check('2×2 左下角是纯蓝', [at(0, 10, 246), at(1, 10, 246), at(2, 10, 246)], [-1, -1, 1]);
+  check('2×2 右下角是纯白', [at(0, 246, 246), at(1, 246, 246), at(2, 246, 246)], [1, 1, 1]);
+  checkTrue(
+    '所有输入值都落在 [-1,1]',
+    quad.data.every((value) => value >= -1 && value <= 1),
+    '出现越界值',
+  );
+
+  // Half-pixel centres, the convention the exported model expects. At x=128 on
+  // the 2x2 image the red channel is 255*(1-t) with t = 128.5/128 - 0.5.
+  const blend = 128.5 / 128 - 0.5;
+  checkClose(
+    '2×2 中间位置的双线性插值与手算一致',
+    at(0, 128, 10),
+    (1 - blend) * 2 - 1,
+    1e-6,
+  );
+
+  const gray = ai.buildInputTensor(rgba(1, 1, () => [77, 77, 77, 255]), 1, 1);
+  const grayValue = shade(77);
+  checkTrue(
+    '灰度图的三个通道相同',
+    [0, 1, 2].every((channel) =>
+      gray.data
+        .subarray(channel * PLANE, (channel + 1) * PLANE)
+        .every((value) => Math.abs(value - grayValue) <= 1e-6),
+    ),
+    `expected ${grayValue}`,
+  );
+
+  const black = ai.buildInputTensor(rgba(1, 1, () => [0, 0, 0, 255]), 1, 1);
+  checkTrue('纯黑映射为 -1', black.data.every((value) => value === -1), 'not all -1');
+  const white = ai.buildInputTensor(rgba(1, 1, () => [255, 255, 255, 255]), 1, 1);
+  checkTrue('纯白映射为 1', white.data.every((value) => value === 1), 'not all 1');
+
+  const withAlpha = (alpha) => rgba(2, 1, (x) => [x === 0 ? 200 : 40, 100, 50, alpha]);
+  const opaque = ai.buildInputTensor(withAlpha(255), 2, 1);
+  const transparent = ai.buildInputTensor(withAlpha(0), 2, 1);
+  checkTrue(
+    'alpha 通道被忽略',
+    transparent.data.every((value, index) => value === opaque.data[index]),
+    'alpha 影响了 RGB 结果',
+  );
+
+  checkThrows(
+    '输入张量拒绝 0 宽',
+    () => ai.buildInputTensor(new Uint8ClampedArray(4), 0, 1),
+    '正整数',
+  );
+  checkThrows(
+    '输入张量拒绝负数高',
+    () => ai.buildInputTensor(new Uint8ClampedArray(4), 1, -2),
+    '正整数',
+  );
+  checkThrows(
+    '输入张量拒绝非整数尺寸',
+    () => ai.buildInputTensor(new Uint8ClampedArray(4), 1.5, 1),
+    '正整数',
+  );
+  checkThrows(
+    '输入张量拒绝过短的 RGBA 数据',
+    () => ai.buildInputTensor(new Uint8ClampedArray(3), 1, 1),
+    '长度不足',
+  );
+}
+
+console.log('\n--- AI 抠图：alpha 缩放（双线性、clamp、恒等）---');
+{
+  const SIZE = 256;
+  const COUNT = SIZE * SIZE;
+  const half = new Float32Array(COUNT).fill(0.5);
+  const resized = ai.resizeAlpha(half, 37, 41);
+  check('缩放输出的像素数', resized.length, 37 * 41);
+  checkTrue(
+    '常量 0.5 放大后仍是常量 128',
+    resized.every((value) => value === 128),
+    '出现了非 128 的值',
+  );
+  checkTrue(
+    '常量 0 放大后仍是 0',
+    ai.resizeAlpha(new Float32Array(COUNT), 73, 29).every((value) => value === 0),
+    '出现了非 0 的值',
+  );
+  checkTrue(
+    '常量 1 放大后仍是 255',
+    ai
+      .resizeAlpha(new Float32Array(COUNT).fill(1), 73, 29)
+      .every((value) => value === 255),
+    '出现了非 255 的值',
+  );
+  checkTrue(
+    '大于 1 的 alpha 被 clamp 到 255',
+    ai.resizeAlpha(new Float32Array(COUNT).fill(2), 5, 5).every((value) => value === 255),
+    'clamp 失败',
+  );
+  checkTrue(
+    '小于 0 的 alpha 被 clamp 到 0',
+    ai
+      .resizeAlpha(new Float32Array(COUNT).fill(-0.5), 5, 5)
+      .every((value) => value === 0),
+    'clamp 失败',
+  );
+
+  const identity = new Float32Array(COUNT);
+  for (let index = 0; index < COUNT; index += 1) {
+    identity[index] = (index % 257) / 256;
+  }
+  const same = ai.resizeAlpha(identity, SIZE, SIZE);
+  let identityMismatches = 0;
+  for (let index = 0; index < COUNT; index += 1) {
+    if (same[index] !== Math.round(identity[index] * 255)) identityMismatches += 1;
+  }
+  check('尺寸不变时是恒等映射', identityMismatches, 0);
+  check('缩放到 1×1 时取中心值', Array.from(ai.resizeAlpha(half, 1, 1)), [128]);
+
+  checkThrows('缩放拒绝 0 宽', () => ai.resizeAlpha(half, 0, 10), '正整数');
+  checkThrows('缩放拒绝负数高', () => ai.resizeAlpha(half, 10, -1), '正整数');
+  checkThrows('缩放拒绝非整数尺寸', () => ai.resizeAlpha(half, 10.5, 10), '正整数');
+  checkThrows(
+    '缩放拒绝长度不对的 alpha',
+    () => ai.resizeAlpha(new Float32Array(10), 10, 10),
+    'alpha 掩码长度',
+  );
+  checkThrows(
+    '缩放拒绝空 alpha',
+    () => ai.resizeAlpha(new Float32Array(0), 10, 10),
+    'alpha 掩码长度',
+  );
+}
+
+console.log('\n--- AI 抠图：加载失败时回退到传统算法（注入假加载器）---');
+{
+  const classic = { engine: 'classic' };
+  let calls = 0;
+  const failed = await ai.matteWithFallback({
+    useAi: true,
+    supported: true,
+    runClassic: () => classic,
+    runAi: async () => {
+      calls += 1;
+      throw new Error('模拟：模型下载失败。');
+    },
+  });
+  check('回退结果来自传统算法', failed.result, classic);
+  check('回退时 usedAi 为 false', failed.usedAi, false);
+  checkTrue(
+    '回退说明写明已改用本地算法',
+    failed.notice.includes('已改用本地算法'),
+    failed.notice,
+  );
+  checkTrue(
+    '回退说明保留可读原因',
+    failed.notice.includes('模拟：模型下载失败。'),
+    failed.notice,
+  );
+  check('确实调用了会失败的 AI 加载器', calls, 1);
+
+  let unsupportedCalls = 0;
+  const unsupported = await ai.matteWithFallback({
+    useAi: true,
+    supported: false,
+    runClassic: () => classic,
+    runAi: async () => {
+      unsupportedCalls += 1;
+      return { engine: 'ai' };
+    },
+  });
+  check('不支持时使用传统算法结果', unsupported.result, classic);
+  check('不支持时不尝试加载模型', unsupportedCalls, 0);
+  checkTrue(
+    '不支持说明提到 WebAssembly',
+    unsupported.notice.includes('WebAssembly'),
+    unsupported.notice,
+  );
+
+  let offCalls = 0;
+  const off = await ai.matteWithFallback({
+    useAi: false,
+    supported: true,
+    runClassic: () => classic,
+    runAi: async () => {
+      offCalls += 1;
+      return { engine: 'ai' };
+    },
+  });
+  check('未勾选时不调用 AI', offCalls, 0);
+  check('未勾选时没有提示', off.notice, null);
+  check('未勾选时结果来自传统算法', off.result, classic);
+
+  const aiResult = { engine: 'ai' };
+  const success = await ai.matteWithFallback({
+    useAi: true,
+    supported: true,
+    runClassic: () => classic,
+    runAi: async () => aiResult,
+  });
+  check('AI 成功时使用 AI 结果', success.result, aiResult);
+  check('AI 成功时 usedAi 为 true', success.usedAi, true);
+  check('AI 成功时没有回退提示', success.notice, null);
+
+  const thrownString = await ai.matteWithFallback({
+    useAi: true,
+    supported: true,
+    runClassic: () => classic,
+    runAi: async () => {
+      throw '模型文件缺失';
+    },
+  });
+  checkTrue(
+    '非 Error 的异常也能转成可读说明',
+    thrownString.notice.includes('模型文件缺失'),
+    thrownString.notice,
+  );
+
+  check(
+    'describeAiFailure 保留 Error 消息',
+    ai.describeAiFailure(new Error('具体原因。')),
+    '具体原因。',
+  );
+  check('describeAiFailure 去掉首尾空白', ai.describeAiFailure('  磁盘错误  '), '磁盘错误');
+  check('describeAiFailure 的未知兜底', ai.describeAiFailure(null), '未知错误。');
+  check('当前运行环境支持 WebAssembly 探测', ai.isAiMattingSupported(), true);
 }
 
 // Synthetic image helpers.
@@ -970,6 +1262,7 @@ console.log('\n--- 「不发送到服务器」：源码扫描与文案检查 ---
     'manifest.ts',
     'photoSpecs.ts',
     'mattingUtils.ts',
+    'aiMatting.ts',
     'exportUtils.ts',
     'index.ts',
   ];
@@ -983,18 +1276,31 @@ console.log('\n--- 「不发送到服务器」：源码扫描与文案检查 ---
   ];
   for (const file of files) {
     const raw = readFileSync(`src/tools/id-photo/${file}`, 'utf8');
-    const withoutComments = ts.transpileModule(raw, {
-      compilerOptions: {
-        module: ts.ModuleKind.ESNext,
-        target: ts.ScriptTarget.ES2022,
-        jsx: ts.JsxEmit.ReactJSX,
-        removeComments: true,
-      },
-    }).outputText;
+    // Scan identifiers rather than raw text. A string literal such as the
+    // runtime's "failed to fetch" error is not a network call, while a real
+    // call site always appears as an identifier. The scanner already skips
+    // comments, so documentation cannot trip the check either.
+    const identifiers = new Set();
+    const scanner = ts.createScanner(
+      ts.ScriptTarget.Latest,
+      false,
+      ts.LanguageVariant.Standard,
+      raw,
+    );
+    let token = scanner.scan();
+    while (token !== ts.SyntaxKind.EndOfFileToken) {
+      if (
+        token === ts.SyntaxKind.Identifier ||
+        token === ts.SyntaxKind.PrivateIdentifier
+      ) {
+        identifiers.add(scanner.getTokenText());
+      }
+      token = scanner.scan();
+    }
     for (const name of forbidden) {
       checkTrue(
         `${file} 去注释后不含 ${name}`,
-        !new RegExp(`\\b${name}\\b`).test(withoutComments),
+        !identifiers.has(name),
         '发现网络 API 标识符',
       );
     }
@@ -1045,6 +1351,138 @@ console.log('\n--- 「不发送到服务器」：源码扫描与文案检查 ---
   );
 }
 
+console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 ---');
+{
+  const ORT_PACKAGE = 'onnxruntime-web';
+  // The runtime also exposes backend subpaths such as onnxruntime-web/wasm.
+  // Any specifier under the package name counts, so a static import of a
+  // subpath cannot slip past the guard.
+  const isOrtModule = (specifier) =>
+    specifier === ORT_PACKAGE || specifier.startsWith(`${ORT_PACKAGE}/`);
+  const collectSources = (dir) => {
+    const found = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) found.push(...collectSources(full));
+      else if (/\.tsx?$/.test(entry.name)) found.push(full);
+    }
+    return found;
+  };
+
+  const enclosingFunction = (node) => {
+    let current = node.parent;
+    while (current) {
+      if (
+        (ts.isFunctionDeclaration(current) ||
+          ts.isFunctionExpression(current) ||
+          ts.isMethodDeclaration(current)) &&
+        current.name &&
+        ts.isIdentifier(current.name)
+      ) {
+        return current.name.text;
+      }
+      if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name)) {
+        return current.name.text;
+      }
+      current = current.parent;
+    }
+    return null;
+  };
+
+  const sourceFiles = collectSources('src');
+  const staticallyImported = [];
+  const dynamicallyImported = [];
+
+  for (const file of sourceFiles) {
+    const source = readFileSync(file, 'utf8');
+    const sourceFile = ts.createSourceFile(
+      file,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    );
+
+    const visit = (node) => {
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier) &&
+        isOrtModule(node.moduleSpecifier.text)
+      ) {
+        staticallyImported.push(file);
+      }
+      if (
+        ts.isImportEqualsDeclaration(node) &&
+        ts.isExternalModuleReference(node.moduleReference) &&
+        ts.isStringLiteral(node.moduleReference.expression) &&
+        isOrtModule(node.moduleReference.expression.text)
+      ) {
+        staticallyImported.push(file);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'require' &&
+        node.arguments.length === 1 &&
+        ts.isStringLiteral(node.arguments[0]) &&
+        isOrtModule(node.arguments[0].text)
+      ) {
+        staticallyImported.push(file);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        node.arguments.length === 1 &&
+        ts.isStringLiteral(node.arguments[0]) &&
+        isOrtModule(node.arguments[0].text)
+      ) {
+        dynamicallyImported.push({
+          file,
+          specifier: node.arguments[0].text,
+          enclosing: enclosingFunction(node),
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+  }
+
+  console.log(
+    `  扫描 ${sourceFiles.length} 个源文件：静态 import ${staticallyImported.length} 处，` +
+      `动态 import ${dynamicallyImported.length} 处（` +
+      dynamicallyImported
+        .map((item) => `${item.file} -> ${item.specifier}#${item.enclosing ?? '?'}`)
+        .join(', ') +
+      '）',
+  );
+
+  check('src 里没有静态 import onnxruntime-web', staticallyImported, []);
+  check(
+    'onnxruntime-web 的动态 import 只出现在 aiMatting.ts',
+    [...new Set(dynamicallyImported.map((item) => item.file))],
+    ['src/tools/id-photo/aiMatting.ts'],
+  );
+  check(
+    '动态 import 位于具名函数内部，保证按需加载',
+    dynamicallyImported.map((item) => item.enclosing),
+    ['loadRuntime'],
+  );
+  checkTrue(
+    'IdPhotoTool.tsx 完全不提 onnxruntime-web',
+    !readFileSync('src/tools/id-photo/IdPhotoTool.tsx', 'utf8').includes(ORT_PACKAGE),
+    '组件里出现了包名，可能被静态打包',
+  );
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+  check(
+    'package.json 声明了 onnxruntime-web 依赖',
+    Object.prototype.hasOwnProperty.call(
+      packageJson.dependencies ?? {},
+      ORT_PACKAGE,
+    ),
+    true,
+  );
+}
 
 /* ------------------------------------------------------------------ *
  * JFIF print resolution
@@ -1087,6 +1525,38 @@ console.log('\n--- 「不发送到服务器」：源码扫描与文案检查 ---
   // Clamping, so a caller cannot write a nonsense density.
   check('密度 0 被抬到 1', exporting.readJpegDensity(exporting.withJpegDensity(jfif, 0))?.x, 1);
   check('密度超上限被截到 65535', exporting.readJpegDensity(exporting.withJpegDensity(jfif, 999999))?.x, 65535);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * AI failure messages
+ * ------------------------------------------------------------------ */
+{
+  const cases = [
+    ['no available backend found. ERR: [wasm] RuntimeError: Aborted(both async and sync fetching of the wasm failed). Build with -sASSERTIONS for more info.',
+     '推理运行时加载失败，可能是网络中断或浏览器不支持 WebAssembly。'],
+    ['TypeError: Failed to fetch', '模型文件下载失败，请检查网络后重试。'],
+    ['RangeError: out of memory', '内存不足，无法加载模型。可以换一张更小的图片再试。'],
+    ['Error: 404 Not Found', '模型文件没有随站点一起部署。'],
+  ];
+  const wrong = [];
+  for (const [input, expected] of cases) {
+    const actual = ai.describeAiFailure(new Error(input));
+    if (actual !== expected) wrong.push({ input: input.slice(0, 30), actual, expected });
+  }
+  check('已知的运行时错误映射为简短中文提示', wrong, []);
+
+  // The message must never leak the raw English dump, which is what the UI
+  // showed before this mapping existed.
+  const raw = ai.describeAiFailure(new Error('no available backend found. ERR: [wasm] thing broke'));
+  check('提示里不含内部英文报错', /no available backend|RuntimeError|sASSERTIONS/.test(raw), false);
+  check('提示是单句且不太长', raw.length <= 60, true);
+
+  // Unknown errors still produce something usable rather than an empty string.
+  const unknown = ai.describeAiFailure(new Error('something odd happened on a very long line that keeps going and going past any reasonable width limit'));
+  check('未知错误被截断而不是整段回显', unknown.length <= 81, true);
+  check('空错误有兜底文案', ai.describeAiFailure(new Error('   ')), '未知错误。');
+  check('非 Error 输入也能处理', ai.describeAiFailure('plain string'), 'plain string');
 }
 
 console.log(

@@ -2,3 +2,9 @@
 # postinstall to materialize the platform binary that Vite uses.
 allowBuilds:
   esbuild: true
+  # protobufjs (pulled in by onnxruntime-web) ships a build script that pnpm asks
+  # about. It is only used to regenerate its own sources; the browser bundle we
+  # import does not need it, and the build plus a real browser run both work with
+  # it skipped. Declared explicitly so pnpm stops prompting with a placeholder
+  # that is a string rather than a boolean.
+  protobufjs: false
