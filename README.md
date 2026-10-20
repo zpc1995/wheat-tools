@@ -34,7 +34,7 @@ pnpm typecheck  # tsc -b
 
 ## 已有工具
 
-共 88 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
+共 89 个工具，按左侧导航的大类分组。导航顶部常驻「工具箱首页」入口，
 便于从任意工具一键归位；「常用工具」按打开次数排序，「我的收藏」由卡片
 右上角的星标维护，两者都存在浏览器 localStorage。
 
@@ -100,7 +100,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 可访问性方面：页面有唯一的 `h1`（工具名），各分区标题是真正的 `h2`
 （共 106 处，批量加上 `as="h2"`），Markdown 预览里的标题整体下移一级，
-避免与页面标题争抢文档大纲。全部 88 个工具通过自动审计。
+避免与页面标题争抢文档大纲。全部 89 个工具通过自动审计。
 
 ### 多语言
 
@@ -111,7 +111,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | 范围 | 状态 |
 | --- | --- |
 | 界面壳层（顶栏、侧边栏、首页、工具页框架、加载态） | 已全部翻译 |
-| 88 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
+| 89 个工具的**名称 / 说明 / 标签** | 已全部翻译 |
 | 工具**内部**的文字（约 1.9 万字） | 仍为中文，界面会显示明确提示 |
 
 工具内部那些解释性文字占比最大，机械替换只会变差；因此宁可让它在英文界面下
@@ -197,6 +197,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 | **TOML 与 YAML 互转** | `toml-yaml` | 复用 `toml-json` 的解析器。重点处理类型不一致：**无偏移时间必须保持本地墙上时间**（裸标量会被 PyYAML 读成六十进制整数）。 |
 | **所见即所得编辑器** | `html-wysiwyg` | `contentEditable` + 自写清理器。粘贴强制清理，`java&#115;cript:` 这类实体混淆与二次编码都能拦下。**`execCommand` 已废弃这点写在界面上**。 |
 | **摄像头录制** | `camera-recorder` | `getUserMedia` + `MediaRecorder`，按错误类型给出具体重试步骤。**明确说明哪部分未验证**（浏览器 API 路径）。 |
+| **证件照制作** | `id-photo` | 本地抠人像、换证件照底色、按一寸/二寸等规格裁切、导出单张或 6 寸拼版。**不引入 ML 模型**（MediaPipe 解包 40 MB，与本站体量不符），用传统 CV 实现，界面写明能力边界。 |
 | **设备信息** | `device-info` | 屏幕/像素比/时区/CPU 核心/内存档位/WebGL 等，**每项标注来源 API 与是否标准**。明确不做指纹并在源码层断言没有指纹 API。 |
 | **URL 分析器** | `url-parser` | 逐字段拆解与诊断（明文协议、冗余端口、IDN、追踪参数、嵌套 URL）。认证信息默认打码。 |
 | **文本统计** | `text-statistics` | **四个口径分别统计**：码点 / 字素簇 / UTF-16 码元 / UTF-8 字节 —— 解答「为什么编辑器的字数和代码里的长度对不上」。 |
@@ -435,6 +436,7 @@ export function MyTool() {
 | `node scripts/check-user-agent-parser.mjs` | UA：真实 UA 固定值 + 畸形输入不瞎猜 + `indexOf('Chrome')` 反证 |
 | `node scripts/check-email-normalizer.mjs` | 邮箱：**`node:url` 在 28 个含畸形用例上逐一对照**（含一处刻意偏离的显式断言） |
 | `node scripts/check-jsx-text.mjs` | 用 **TypeScript 语法树**查 JSX 文本里不会渲染的 Markdown 加粗语法 |
+| `node scripts/check-id-photo.mjs` | 证件照：抠图用**合成图 ground truth**（真值由构造已知，各场景 IoU 0.999+）+ 朴素阈值反证；拼版用第二套排布实现核对 |
 | `node scripts/check-emoji-picker.mjs` | Emoji：`codePointAt` / `TextEncoder` 为权威，`Buffer` 与 `encodeURIComponent` 作独立见证 |
 | `node scripts/check-ascii-art-text.mjs` | ASCII 艺术字：**独立 FLF 解析器**比对上游冻结字模（含等高不变量） |
 | `node scripts/check-toml-yaml.mjs` | TOML/YAML：**`tomllib` + PyYAML** 双向规范结构比对 |
