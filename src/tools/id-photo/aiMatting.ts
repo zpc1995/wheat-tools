@@ -31,7 +31,7 @@
  * fetching the model and the wasm runtime from the site itself, both cached by
  * the browser after the first use; inference runs on this machine.
  */
-import { tightenAlpha, type MattingResult, type RgbaImage } from './mattingUtils';
+import { cleanMatteEdges, tightenAlpha, type MattingResult, type RgbaImage } from './mattingUtils';
 
 /**
  * Model input resolution.
@@ -482,11 +482,27 @@ export type AiMattingPhase = 'loading-session' | 'inference';
  */
 export const DEFAULT_TIGHTEN = 2.4;
 
+/**
+ * Pixels to trim from the matte boundary.
+ *
+ * Two pixels at working resolution removes the pale fringe that reads as white
+ * scratches on a coloured background, while leaving the silhouette natural. Four
+ * starts to look cut out.
+ */
+export const DEFAULT_TRIM = 2;
+
+/** Components smaller than this many pixels are dropped as specks. */
+export const DEFAULT_MIN_SPECK = 24;
+
 export interface AiMattingOptions {
   /** Lets the caller show a download step and an inference step separately. */
   onPhase?: (phase: AiMattingPhase) => void;
   /** Overrides DEFAULT_TIGHTEN; 1 disables the narrowing. */
   tighten?: number;
+  /** Boundary trim in pixels; 0 keeps the raw model silhouette. */
+  trim?: number;
+  /** Speck size below which a component is dropped. */
+  minSpeck?: number;
 }
 
 function buildResult(
@@ -568,14 +584,16 @@ export async function matteWithAi(
   // The model's alpha ramps over several pixels. At a one-inch output that ramp
   // is a visible share of the whole photo and reads as a blurry outline, so the
   // band is narrowed before it reaches the rest of the pipeline.
-  return buildResult(
-    tightenAlpha(
-      resizeAlpha(output.data, image.width, image.height),
-      options.tighten ?? DEFAULT_TIGHTEN,
-    ),
-    image.width,
-    image.height,
+  const tightened = tightenAlpha(
+    resizeAlpha(output.data, image.width, image.height),
+    options.tighten ?? DEFAULT_TIGHTEN,
   );
+  // Trim the pale fringe and the stray specks the matte keeps around the hair.
+  const cleaned = cleanMatteEdges(tightened, image.width, image.height, {
+    trim: options.trim ?? DEFAULT_TRIM,
+    minSpeck: options.minSpeck ?? DEFAULT_MIN_SPECK,
+  });
+  return buildResult(cleaned.alpha, image.width, image.height);
 }
 
 export interface MattingFallbackOptions<T> {

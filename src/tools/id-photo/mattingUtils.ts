@@ -1144,3 +1144,120 @@ export function tightenAlpha(
   }
   return output;
 }
+
+/* ------------------------------------------------------------------ *
+ * Edge cleanup
+ * ------------------------------------------------------------------ */
+
+/**
+ * Pulls the matte boundary inward and drops isolated specks.
+ *
+ * A model matte keeps the wispy hair it believes in, and around a light
+ * background those wisps arrive as *light* pixels with a high alpha: the source
+ * photo's hair-and-wall boundary is itself blurred, so a pixel can honestly be
+ * 90% hair and still be pale grey. Composited onto blue, those pixels read as
+ * white scratches along the silhouette — the strongest remaining "this was
+ * pasted" cue.
+ *
+ * There is no way to recover structure the source does not contain, so an ID
+ * photo is cleaned the way a studio does it: trim the silhouette to solid hair
+ * and drop the specks. A two-pixel trim at working resolution removes the pale
+ * fringe while leaving the outline natural; more starts to look cut out.
+ *
+ * Implemented as a grey erosion (minimum over a square window) so partial alpha
+ * is handled rather than rounded to a binary mask first.
+ */
+export function cleanMatteEdges(
+  alpha: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options: { trim?: number; minSpeck?: number } = {},
+): { alpha: Uint8ClampedArray<ArrayBuffer>; trimmed: number } {
+  const trim = Math.max(0, Math.floor(options.trim ?? 0));
+  const minSpeck = Math.max(0, Math.floor(options.minSpeck ?? 0));
+  const total = Math.min(alpha.length, width * height);
+  if (total === 0 || width <= 0 || height <= 0) {
+    return { alpha: new Uint8ClampedArray(alpha), trimmed: 0 };
+  }
+
+  let work: Uint8ClampedArray<ArrayBuffer> = new Uint8ClampedArray(alpha.subarray(0, total));
+
+  // Grey erosion: each pixel takes the minimum of its (2r+1)² neighbourhood, so
+  // the boundary moves inward by about r pixels and thin protrusions vanish.
+  for (let step = 0; step < trim; step += 1) {
+    const next = new Uint8ClampedArray(total);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        let value = 255;
+        for (let dy = -1; dy <= 1; dy += 1) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= height) continue;
+          for (let dx = -1; dx <= 1; dx += 1) {
+            const nx = x + dx;
+            if (nx < 0 || nx >= width) continue;
+            const sample = work[ny * width + nx];
+            if (sample < value) value = sample;
+          }
+        }
+        next[y * width + x] = value;
+      }
+    }
+    work = next;
+  }
+
+  if (minSpeck > 0) {
+    work = dropSpecks(work, width, height, minSpeck);
+  }
+  return { alpha: work, trimmed: trim };
+}
+
+/** Zeroes out four-connected components smaller than `minSpeck` pixels. */
+function dropSpecks(
+  alpha: Uint8ClampedArray,
+  width: number,
+  height: number,
+  minSpeck: number,
+): Uint8ClampedArray<ArrayBuffer> {
+  const total = width * height;
+  const threshold = 8;
+  const label = new Int32Array(total).fill(-1);
+  const queue = new Int32Array(total);
+  const output = new Uint8ClampedArray(alpha);
+  let next = 0;
+
+  for (let start = 0; start < total; start += 1) {
+    if (alpha[start] <= threshold || label[start] !== -1) continue;
+    const id = next;
+    next += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail] = start;
+    tail += 1;
+    label[start] = id;
+    const members: number[] = [];
+    while (head < tail) {
+      const index = queue[head];
+      head += 1;
+      members.push(index);
+      const x = index % width;
+      const y = (index - x) / width;
+      const neighbours = [
+        x > 0 ? index - 1 : -1,
+        x + 1 < width ? index + 1 : -1,
+        y > 0 ? index - width : -1,
+        y + 1 < height ? index + width : -1,
+      ];
+      for (const neighbour of neighbours) {
+        if (neighbour < 0) continue;
+        if (alpha[neighbour] <= threshold || label[neighbour] !== -1) continue;
+        label[neighbour] = id;
+        queue[tail] = neighbour;
+        tail += 1;
+      }
+    }
+    if (members.length < minSpeck) {
+      for (const index of members) output[index] = 0;
+    }
+  }
+  return output;
+}

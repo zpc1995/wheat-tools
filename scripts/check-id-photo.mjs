@@ -1823,6 +1823,56 @@ console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 -
   ) < 0.01, true);
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Edge cleanup (trim + specks)
+ * ------------------------------------------------------------------ */
+{
+  const W = 40, H = 40;
+  // A filled disc, a thin 1px spike, and an isolated speck.
+  const a = new Uint8ClampedArray(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if ((x - 20) ** 2 + (y - 20) ** 2 <= 100) a[y * W + x] = 255;
+  }
+  a[5 * W + 5] = 255;                 // isolated speck
+  a[2 * W + 20] = 255;                // thin spike above the disc
+
+  const count = (arr) => arr.reduce((n, v) => n + (v > 8 ? 1 : 0), 0);
+  const before = count(a);
+
+  const trimmed2 = matting.cleanMatteEdges(a, W, H, { trim: 2, minSpeck: 0 });
+  check('清理后像素变少', count(trimmed2.alpha) < before, true);
+  check('trim 为 0 时保持原样', count(matting.cleanMatteEdges(a, W, H, { trim: 0, minSpeck: 0 }).alpha), before);
+  check('trim 报告回传', trimmed2.trimmed, 2);
+
+  const speckless = matting.cleanMatteEdges(a, W, H, { trim: 0, minSpeck: 8 });
+  check('孤立浮点被去掉', speckless.alpha[5 * W + 5], 0);
+  check('细尖刺也被当作浮点去掉', speckless.alpha[2 * W + 20], 0);
+  check('主区域保留', speckless.alpha[20 * W + 20], 255);
+
+  // More trim must never increase the area.
+  let previous = before;
+  let monotonic = true;
+  for (const trim of [1, 2, 3, 4]) {
+    const n = count(matting.cleanMatteEdges(a, W, H, { trim, minSpeck: 0 }).alpha);
+    if (n > previous) monotonic = false;
+    previous = n;
+  }
+  check('trim 越大面积单调不增', monotonic, true);
+
+  // The default must actually trim: a no-op default would hide the fix.
+  check('默认 trim 大于 0', ai.DEFAULT_TRIM > 0, true);
+  check('默认浮点阈值合理', ai.DEFAULT_MIN_SPECK > 0 && ai.DEFAULT_MIN_SPECK < 200, true);
+
+  // Partial alpha must survive as partial, not be rounded to binary.
+  const soft = new Uint8ClampedArray(W * H).fill(128);
+  const softOut = matting.cleanMatteEdges(soft, W, H, { trim: 1, minSpeck: 0 }).alpha;
+  check('部分透明的像素保持部分透明', softOut[20 * W + 20] > 0 && softOut[20 * W + 20] < 255, true);
+
+  // Degenerate input must not throw.
+  check('零尺寸安全', matting.cleanMatteEdges(new Uint8ClampedArray(0), 0, 0).alpha.length, 0);
+}
+
 console.log(
   '\n未在 Node 中验证：画布绘制与 JPEG 编码、指针画笔事件、' +
     '浏览器中的最终成像与打印效果。这些需要真实浏览器。',
