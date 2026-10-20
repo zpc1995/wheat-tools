@@ -33,8 +33,35 @@
  */
 import type { MattingResult, RgbaImage } from './mattingUtils';
 
-/** The model's fixed input and output resolution. */
-export const MODEL_INPUT_SIZE = 256;
+/**
+ * Model input resolution.
+ *
+ * The exported graph accepts a dynamic height and width, and the value here is
+ * the single most visible quality knob in this tool. The exporter's own default
+ * is 256, which is far too coarse for a portrait: the alpha then has to be
+ * upscaled about five times to the working image, and every hair becomes a
+ * blocky step — fine strands disappear entirely and the silhouette looks
+ * stamped out.
+ *
+ * Measured on a real 1378x1280 portrait, composited on white:
+ *   256  — stray hairs cut off, visibly chunky outline
+ *   512  — strands resolved, natural transition
+ *   768  — slightly finer still
+ *   1024 — marginal gain over 768 at roughly twice the inference cost
+ * so 768 is the ceiling here. Small images are not upscaled past their own long
+ * edge, since that would cost time without adding detail.
+ */
+export const MODEL_INPUT_SIZE_MAX = 768;
+export const MODEL_INPUT_SIZE_MIN = 256;
+
+/** Resolution actually fed to the model for a working image of this size. */
+export function modelInputSize(width: number, height: number): number {
+  const longEdge = Math.max(width, height);
+  return Math.max(
+    MODEL_INPUT_SIZE_MIN,
+    Math.min(MODEL_INPUT_SIZE_MAX, Math.round(longEdge)),
+  );
+}
 
 /** Public model location, relative to the site base. */
 export const MODEL_FILE = 'models/modnet.fp16.onnx';
@@ -163,7 +190,7 @@ export function buildInputTensor(
     );
   }
 
-  const size = MODEL_INPUT_SIZE;
+  const size = modelInputSize(width, height);
   const plane = size * size;
   const data = new Float32Array(plane * 3);
   const scaleX = width / size;
@@ -247,10 +274,12 @@ export function resizeAlpha(
   targetHeight: number,
 ): Uint8ClampedArray {
   assertDimensions(targetWidth, targetHeight, '目标尺寸');
-  const size = MODEL_INPUT_SIZE;
-  if (alpha256.length !== size * size) {
+  // The model output is square but its size is not fixed any more, so derive it
+  // from the buffer instead of assuming one particular resolution.
+  const size = Math.round(Math.sqrt(alpha256.length));
+  if (size * size !== alpha256.length || size <= 0) {
     throw new Error(
-      `alpha 掩码长度必须是 ${size * size}，实际为 ${alpha256.length}。`,
+      `alpha 掩码长度必须是完全平方数（模型输出是正方形），实际为 ${alpha256.length}。`,
     );
   }
 
@@ -514,7 +543,7 @@ export async function matteWithAi(
 
   const outputName = session.outputNames[0] ?? 'output';
   const output = outputs[outputName] ?? Object.values(outputs)[0];
-  const expectedAlpha = MODEL_INPUT_SIZE * MODEL_INPUT_SIZE;
+  const expectedAlpha = input.width * input.height;
   if (
     !output ||
     !(output.data instanceof Float32Array) ||

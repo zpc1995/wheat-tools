@@ -961,3 +961,80 @@ export function mattePortrait(
     },
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * Colour decontamination
+ * ------------------------------------------------------------------ */
+
+/**
+ * Removes the background colour that mixed into the edge pixels.
+ *
+ * A matte's alpha says *how much* subject is in a pixel, but the pixel's colour
+ * is still a blend of subject and background. Compositing that blend onto a new
+ * background double-counts the old one: the seam keeps a rim of the original
+ * backdrop. With a pale wall behind dark hair the rim is a bright halo, which is
+ * the single most visible defect when a portrait is dropped onto a coloured ID
+ * background — and raising the matting resolution alone does not remove it,
+ * because the contamination is in the colour, not the mask.
+ *
+ * The fix is the standard un-mixing step: for a pixel that is `t` percent
+ * subject, the observed colour is `C = t*F + (1-t)*B` for unknown foreground
+ * `F` and known background `B`, so `F = (C - (1-t)*B) / t`. The background is
+ * estimated from the fully transparent pixels.
+ *
+ * Only partly transparent pixels are touched. Fully opaque pixels are left
+ * exactly as they are, so the face and clothing cannot shift, and the division
+ * is stabilised by clamping `t` away from zero.
+ *
+ * Pure and exported for testing: it mutates the RGB of `pixels` in place and
+ * never touches the alpha channel.
+ */
+export function decontaminateEdges(
+  pixels: Uint8ClampedArray,
+  alpha: Uint8ClampedArray,
+): { background: [number, number, number]; touched: number } {
+  const total = Math.min(alpha.length, Math.floor(pixels.length / 4));
+
+  // Estimate the original backdrop from the pixels the matte calls background.
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+  let samples = 0;
+  for (let index = 0; index < total; index += 1) {
+    if (alpha[index] > 2) continue;
+    const offset = index * 4;
+    sumR += pixels[offset];
+    sumG += pixels[offset + 1];
+    sumB += pixels[offset + 2];
+    samples += 1;
+  }
+  if (samples === 0) {
+    // Nothing was fully transparent: there is no background to estimate, and
+    // guessing one would shift colours on a correct matte.
+    return { background: [0, 0, 0], touched: 0 };
+  }
+  const background: [number, number, number] = [
+    sumR / samples,
+    sumG / samples,
+    sumB / samples,
+  ];
+
+  let touched = 0;
+  for (let index = 0; index < total; index += 1) {
+    const a = alpha[index];
+    if (a >= 250) continue; // solid subject: leave it alone
+    const t = a / 255;
+    const stable = Math.max(t, 0.1);
+    const weight = 1 - t; // reaches 1 at fully transparent, 0 at fully opaque
+    const offset = index * 4;
+    for (let channel = 0; channel < 3; channel += 1) {
+      const observed = pixels[offset + channel];
+      const unmixed =
+        (observed - (1 - stable) * background[channel]) / stable;
+      const value = observed + (clamp(unmixed, 0, 255) - observed) * weight;
+      pixels[offset + channel] = Math.round(value);
+    }
+    touched += 1;
+  }
+  return { background: background.map(Math.round) as [number, number, number], touched };
+}

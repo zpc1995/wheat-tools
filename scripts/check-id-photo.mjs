@@ -1559,6 +1559,76 @@ console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 -
   check('非 Error 输入也能处理', ai.describeAiFailure('plain string'), 'plain string');
 }
 
+
+{
+  // Model input resolution adapts to the working image: never below 256 (the
+  // exporter's own default) and never above 768, where the extra detail stopped
+  // being worth the inference cost.
+  check('小图不被放大到 768 以上', ai.modelInputSize(300, 200), 300);
+  check('超小图仍取下限 256', ai.modelInputSize(120, 90), 256);
+  check('中等图按长边给尺寸', ai.modelInputSize(640, 594), 640);
+  check('大图被截到上限 768', ai.modelInputSize(1600, 1486), 768);
+  check('长边是高度时同样成立', ai.modelInputSize(500, 900), 768);
+
+  // The tensor must follow whatever size the helper chose.
+  const px = new Uint8ClampedArray(640 * 594 * 4).fill(200);
+  const tensor = ai.buildInputTensor(px, 640, 594);
+  check('张量尺寸与选择一致', [tensor.width, tensor.height], [640, 640]);
+  check('张量数据长度 = 3 * 边长²', tensor.data.length, 3 * 640 * 640);
+  check('dims 与边长一致', tensor.dims, [1, 3, 640, 640]);
+
+  // resizeAlpha no longer assumes one fixed resolution.
+  const at640 = new Float32Array(640 * 640).fill(0.5);
+  check('640 的 alpha 能缩放到任意目标', ai.resizeAlpha(at640, 4, 4).length, 16);
+  const at768 = new Float32Array(768 * 768).fill(1);
+  check('768 的 alpha 同样可缩放', Array.from(ai.resizeAlpha(at768, 2, 2)), [255, 255, 255, 255]);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Colour decontamination
+ * ------------------------------------------------------------------ */
+{
+  // A pixel that is half subject and half white wall reads, say, (140,140,140)
+  // when the true foreground is dark. Un-mixing must move it towards the
+  // foreground so the seam stops showing the old backdrop.
+  const make = (rgb, a) => {
+    const px = new Uint8ClampedArray(4 * rgb.length);
+    const al = new Uint8ClampedArray(rgb.length);
+    rgb.forEach((c, i) => { px[i*4] = c[0]; px[i*4+1] = c[1]; px[i*4+2] = c[2]; px[i*4+3] = a[i]; al[i] = a[i]; });
+    return { px, al };
+  };
+
+  // index 0: pure background (alpha 0), index 1: half subject, index 2: solid subject
+  const { px, al } = make([[255,255,255],[140,140,140],[20,20,20]], [0, 128, 255]);
+  const result = matting.decontaminateEdges(px, al);
+  check('背景色从全透明像素估计出来', result.background, [255, 255, 255]);
+  check('只处理部分透明的像素', result.touched, 2);
+  check('实心像素的颜色没有变', [px[8], px[9], px[10]], [20, 20, 20]);
+  // t = 0.502, so F = (140 - 0.498*255)/0.502 ≈ 26 and the weight is (1-t) ≈ 0.498,
+  // giving 140 -> 83. Assert the direction and magnitude rather than a guess.
+  check('半透明像素被拉向真实前景色', px[4] >= 70 && px[4] < 110, true);
+  check('alpha 通道未被改动', [px[3], px[7], px[11]], [0, 128, 255]);
+
+  // No transparent pixels at all: nothing can be estimated, so nothing changes.
+  const solid = make([[10,20,30],[40,50,60]], [200, 255]);
+  const before = Array.from(solid.px);
+  const none = matting.decontaminateEdges(solid.px, solid.al);
+  check('没有背景样本时不做任何修改', Array.from(solid.px), before);
+  check('没有背景样本时报告 0', none.touched, 0);
+
+  // A dark backdrop must darken, not brighten, the seam (no fixed assumption).
+  const dark = make([[10,10,10],[60,60,60],[200,200,200]], [0, 100, 255]);
+  matting.decontaminateEdges(dark.px, dark.al);
+  check('深色背景时半透明像素变暗', dark.px[4] > 60, true);
+
+  // Fully transparent pixels keep an updated colour so that downscaling does not
+  // pull the halo back in.
+  const edge = make([[255,255,255],[255,255,255]], [0, 250]);
+  matting.decontaminateEdges(edge.px, edge.al);
+  check('接近不透明的像素基本不动', Math.abs(edge.px[4] - 255) <= 6, true);
+}
+
 console.log(
   '\n未在 Node 中验证：画布绘制与 JPEG 编码、指针画笔事件、' +
     '浏览器中的最终成像与打印效果。这些需要真实浏览器。',

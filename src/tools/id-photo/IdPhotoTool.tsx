@@ -52,6 +52,7 @@ import {
 } from './photoSpecs';
 import {
   applyBrushStrokes,
+  decontaminateEdges,
   mattePortrait,
   type BrushMode,
   type BrushStroke,
@@ -71,7 +72,20 @@ import {
 } from './exportUtils';
 
 /** Matting runs at this longest edge; the export target is much smaller. */
-const MAX_WORK_EDGE = 640;
+/**
+ * Longest edge of the image the tool actually works on.
+ *
+ * This used to be 640, which capped matting quality before the model even ran:
+ * a 1378 px portrait was reduced to 640 first, so the finest hair detail was
+ * discarded and the model's alpha then had to be stretched back up. Measured on
+ * a real portrait, raising it to 1600 keeps the strands the 640 version lost.
+ *
+ * The cost is memory and time in the classic pipeline (roughly linear in pixel
+ * count) and a larger texture for the AI path. 1600 still leaves a 300 dpi
+ * two-inch photo with more than 2x headroom, so it is not the export that
+ * benefits but the edge quality of the mask.
+ */
+const MAX_WORK_EDGE = 1600;
 const PREVIEW_HEIGHT = 380;
 const MAX_STROKES = 400;
 
@@ -164,6 +178,10 @@ function buildCutout(
   if (!context) return canvas;
   const pixels = new Uint8ClampedArray(source.imageData.data);
   const limit = Math.min(alpha.length, source.workWidth * source.workHeight);
+  // Un-mix the original backdrop from the edge colours *before* applying alpha.
+  // Without this the cutout carries a rim of the old background, which shows as
+  // a bright halo once it sits on a coloured ID background.
+  decontaminateEdges(pixels, alpha);
   for (let index = 0; index < limit; index += 1) {
     const alphaOffset = index * 4 + 3;
     pixels[alphaOffset] = Math.round((pixels[alphaOffset] * alpha[index]) / 255);
