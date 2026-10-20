@@ -51,6 +51,11 @@ import {
   type PhotoBackground,
 } from './photoSpecs';
 import {
+  computeAutoFraming,
+  framingToTransform,
+  measureHead,
+} from './framingUtils';
+import {
   applyBrushStrokes,
   decontaminateEdges,
   mattePortrait,
@@ -498,6 +503,32 @@ export function IdPhotoTool() {
   const [matte, setMatte] = useState<MattingResult | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiStatus, setAiStatus] = useState<AiModeStatus>('off');
+
+  /**
+   * Places the head where an ID photo expects it.
+   *
+   * Applied automatically after each matte. The default cover framing of a
+   * portrait shot at talking distance leaves the head at about 40% of the frame
+   * height; at a one-inch output (295 px wide) that throws away most of the
+   * detail the source actually has, which reads as a soft photo. The user can
+   * still adjust zoom and position afterwards — this only sets a sane start.
+   */
+  const applyAutoFraming = useCallback(
+    (alpha: Uint8ClampedArray, width: number, height: number, aspect: number) => {
+      const head = measureHead(alpha, width, height);
+      if (!head) return false;
+      const frame = computeAutoFraming(head, width, height, aspect);
+      const transform = framingToTransform(frame, width, height, 295, 413);
+      // Guard against a degenerate mask producing an absurd zoom.
+      if (!Number.isFinite(transform.zoom) || transform.zoom <= 0) return false;
+      setZoom(Number(Math.min(8, transform.zoom).toFixed(3)));
+      setOffsetX(Number((transform.offsetX * 100).toFixed(1)));
+      setOffsetY(Number((transform.offsetY * 100).toFixed(1)));
+      return true;
+    },
+    [],
+  );
+
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -645,6 +676,23 @@ export function IdPhotoTool() {
       cancelled = true;
     };
   }, [source, tolerance, feather, aiEnabled]);
+
+  // Frame the head automatically the first time a matte appears, and again
+  // whenever a new one is produced. Guarded by a ref rather than by dependencies
+  // so that a spec change or a manual zoom does not silently undo the user's
+  // adjustment.
+  const framedMatteRef = useRef<MattingResult | null>(null);
+  useEffect(() => {
+    if (!source || !matte) return;
+    if (framedMatteRef.current === matte) return;
+    framedMatteRef.current = matte;
+    applyAutoFraming(
+      matte.alpha,
+      source.workWidth,
+      source.workHeight,
+      spec.widthPx / spec.heightPx,
+    );
+  }, [source, matte, spec, applyAutoFraming]);
 
   // Release the wasm session when the tool is closed. Toggling the switch off
   // keeps it, so turning AI back on does not download the model again.
@@ -1028,6 +1076,22 @@ export function IdPhotoTool() {
           {busy && <Caption1 className={styles.hint}>处理中…</Caption1>}
           <Button
             appearance="subtle"
+            icon={<PersonSquareRegular />}
+            onClick={() => {
+              if (!alpha || !source) return;
+              applyAutoFraming(
+                alpha,
+                source.workWidth,
+                source.workHeight,
+                spec.widthPx / spec.heightPx,
+              );
+            }}
+            disabled={!source || !alpha}
+          >
+            自动构图
+          </Button>
+          <Button
+            appearance="secondary"
             icon={<ArrowResetRegular />}
             onClick={resetAdjustments}
             disabled={!source}

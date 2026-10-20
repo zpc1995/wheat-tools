@@ -34,6 +34,7 @@ const MODULE_OUTPUT = {
   'mattingUtils.ts': 'matting',
   'aiMatting.ts': 'ai',
   'exportUtils.ts': 'export',
+  'framingUtils.ts': 'framing',
 };
 
 const loadModule = async (file, name) => {
@@ -54,6 +55,7 @@ const loadModule = async (file, name) => {
 const specs = await loadModule('photoSpecs.ts', 'specs');
 const matting = await loadModule('mattingUtils.ts', 'matting');
 const ai = await loadModule('aiMatting.ts', 'ai');
+const framing = await loadModule('framingUtils.ts', 'framing');
 const exporting = await loadModule('exportUtils.ts', 'export');
 
 let passed = 0;
@@ -1735,6 +1737,82 @@ console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 -
   }
   check('收紧确实缩窄了过渡带', bandAfter < bandBefore, true);
   check('扩散把边缘像素染成前景色', hp[(20*hardW + 12)*4] < 100, true);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Automatic head framing
+ * ------------------------------------------------------------------ */
+{
+  const W = 400, H = 600;
+  // A bust: head, neck, shoulders — connected, like a real portrait.
+  const a = new Uint8ClampedArray(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const head = ((x - 200) / 70) ** 2 + ((y - 170) / 95) ** 2 <= 1;      // 95..265
+      const neck = x > 180 && x < 220 && y >= 250 && y < 320;
+      const shoulders = ((x - 200) / 190) ** 2 + ((y - 520) / 210) ** 2 <= 1 && y >= 320;
+      if (head || neck || shoulders) a[y * W + x] = 255;
+    }
+  }
+  const head = framing.measureHead(a, W, H);
+  check('检测到头顶', head && head.crown, 75);
+  check('检测到脖子最窄处（在肩线之上）', head.neck > 250 && head.neck < 330, true);
+  check('头高落在合理范围', head.headHeight > 120 && head.headHeight < 260, true);
+  check('水平中心在人物中线上', Math.abs(head.centreX - 200) < 12, true);
+  check('检测到肩线', head.shoulder !== null, true);
+
+  // The frame must put the head at the requested share of its height.
+  const frame = framing.computeAutoFraming(head, W, H, 295 / 413, { headFraction: 0.62, topMargin: 0.09 });
+  const share = (head.headHeight / frame.height) * 100;
+  check('头高占画幅约 62%', Math.abs(share - 62) < 1, true);
+  check('顶部留白约 9%', Math.abs(((head.crown - frame.y) / frame.height) * 100 - 9) < 1, true);
+  check('画幅宽高比正确', Math.abs(frame.width / frame.height - 295 / 413) < 0.01, true);
+  check('画幅不越界（左）', frame.x >= 0, true);
+  check('画幅不越界（上）', frame.y >= 0, true);
+
+  // The transform must actually map the crop onto the canvas, not merely be a
+  // finite number. Recreate drawCover's arithmetic and check where the crop's
+  // corners and centre land.
+  const t = framing.framingToTransform(frame, W, H, 295, 413);
+  const tw = 295, th = 413;
+  const cover = Math.max(tw / W, th / H) * t.zoom;
+  const drawW = W * cover;
+  const drawH = H * cover;
+  const originX = (tw - drawW) / 2 + t.offsetX * tw;
+  const originY = (th - drawH) / 2 + t.offsetY * th;
+  const project = (ix, iy) => [originX + ix * cover, originY + iy * cover];
+
+  const centre = project(frame.x + frame.width / 2, frame.y + frame.height / 2);
+  check('裁切中心落在画布中心（x）', Math.abs(centre[0] - tw / 2) < 0.5, true);
+  check('裁切中心落在画布中心（y）', Math.abs(centre[1] - th / 2) < 0.5, true);
+  const topLeft = project(frame.x, frame.y);
+  check('裁切左上角落在画布左上角（x）', Math.abs(topLeft[0]) < 0.5, true);
+  check('裁切左上角落在画布左上角（y）', Math.abs(topLeft[1]) < 0.5, true);
+  const bottomRight = project(frame.x + frame.width, frame.y + frame.height);
+  check('裁切右下角落在画布右下角', Math.abs(bottomRight[0] - tw) < 0.5 && Math.abs(bottomRight[1] - th) < 0.5, true);
+
+  // The measured head must end up where the frame intended, in canvas pixels.
+  const crownOnCanvas = project(head.centreX, head.crown)[1];
+  const neckOnCanvas = project(head.centreX, head.crown + head.headHeight)[1];
+  check('头顶在画布内的位置符合留白比例', Math.abs(crownOnCanvas - 0.09 * th) < 1.5, true);
+  check('头高在画布内符合比例', Math.abs((neckOnCanvas - crownOnCanvas) - 0.62 * th) < 2, true);
+
+  // A portrait that already fills the frame must not be zoomed wildly.
+  const full = new Uint8ClampedArray(W * H).fill(255);
+  const fullHead = framing.measureHead(full, W, H);
+  const fullFrame = framing.computeAutoFraming(fullHead, W, H, 295 / 413);
+  const fullT = framing.framingToTransform(fullFrame, W, H, 295, 413);
+  check('主体占满画面时缩放仍有限', Number.isFinite(fullT.zoom) && fullT.zoom <= 8, true);
+
+  // Empty mask: no guess, no change.
+  check('空掩码不返回测量结果', framing.measureHead(new Uint8ClampedArray(W * H), W, H), null);
+
+  // Degenerate inputs must not throw.
+  check('零尺寸返回 null', framing.measureHead(new Uint8ClampedArray(0), 0, 0), null);
+  check('非法宽高比回退到源图比例', Math.abs(
+    framing.computeAutoFraming(head, W, H, 0).width / framing.computeAutoFraming(head, W, H, 0).height - W / H,
+  ) < 0.01, true);
 }
 
 console.log(
