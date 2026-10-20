@@ -290,7 +290,10 @@ console.log('--- 子函数：边框、软阈值、泛洪、连通域、形态学
 
 console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）---');
 {
-  const SIZE = 256;
+  // Derived from the implementation rather than hardcoded: this used to say 256,
+  // and when the model changed to a 512-input network every offset silently
+  // pointed at the wrong pixels while the labels still claimed 256.
+  const SIZE = ai.modelInputSize(2, 2);
   const PLANE = SIZE * SIZE;
   const rgba = (width, height, pixelAt) => {
     const data = new Uint8ClampedArray(width * height * 4);
@@ -306,13 +309,14 @@ console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）-
     }
     return data;
   };
-  // The same arithmetic the implementation documents: RGB/255, then to [-1,1].
-  const shade = (value) => (value / 255) * 2 - 1;
+  // The same arithmetic the implementation documents: RMBG-1.4 normalises with
+  // mean 0.5 and std 1.0, so the range is [-0.5, 0.5] rather than [-1, 1].
+  const shade = (value) => value / 255 - 0.5;
 
   const single = ai.buildInputTensor(rgba(1, 1, () => [10, 20, 30, 255]), 1, 1);
-  check('输入张量长度为 3 × 256 × 256', single.data.length, PLANE * 3);
-  check('输入张量形状为 [1,3,256,256]', single.dims, [1, 3, 256, 256]);
-  check('输入张量的宽高是 256', [single.width, single.height], [SIZE, SIZE]);
+  check('输入张量长度为 3 × SIZE²', single.data.length, PLANE * 3);
+  check('输入张量形状为 [1,3,SIZE,SIZE]', single.dims, [1, 3, SIZE, SIZE]);
+  check('输入张量的宽高与 SIZE 一致', [single.width, single.height], [SIZE, SIZE]);
 
   const expected = [shade(10), shade(20), shade(30)];
   for (let channel = 0; channel < 3; channel += 1) {
@@ -338,24 +342,28 @@ console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）-
     2,
   );
   const at = (channel, x, y) => quad.data[channel * PLANE + y * SIZE + x];
-  check('2×2 左上角是纯红', [at(0, 10, 10), at(1, 10, 10), at(2, 10, 10)], [1, -1, -1]);
-  check('2×2 右上角是纯绿', [at(0, 246, 10), at(1, 246, 10), at(2, 246, 10)], [-1, 1, -1]);
-  check('2×2 左下角是纯蓝', [at(0, 10, 246), at(1, 10, 246), at(2, 10, 246)], [-1, -1, 1]);
-  check('2×2 右下角是纯白', [at(0, 246, 246), at(1, 246, 246), at(2, 246, 246)], [1, 1, 1]);
+  const EDGE = Math.max(2, Math.round(SIZE * 0.04));
+  const FAR = SIZE - EDGE - 1;
+  check('2×2 左上角是纯红', [at(0, EDGE, EDGE), at(1, EDGE, EDGE), at(2, EDGE, EDGE)], [0.5, -0.5, -0.5]);
+  check('2×2 右上角是纯绿', [at(0, FAR, EDGE), at(1, FAR, EDGE), at(2, FAR, EDGE)], [-0.5, 0.5, -0.5]);
+  check('2×2 左下角是纯蓝', [at(0, EDGE, FAR), at(1, EDGE, FAR), at(2, EDGE, FAR)], [-0.5, -0.5, 0.5]);
+  check('2×2 右下角是纯白', [at(0, FAR, FAR), at(1, FAR, FAR), at(2, FAR, FAR)], [0.5, 0.5, 0.5]);
   checkTrue(
-    '所有输入值都落在 [-1,1]',
-    quad.data.every((value) => value >= -1 && value <= 1),
+    '所有输入值都落在 [-0.5,0.5]',
+    quad.data.every((value) => value >= -0.5 && value <= 0.5),
     '出现越界值',
   );
 
   // Half-pixel centres, the convention the exported model expects. At x=128 on
   // the 2x2 image the red channel is 255*(1-t) with t = 128.5/128 - 0.5.
-  const blend = 128.5 / 128 - 0.5;
+  // At the horizontal midpoint of a 2-pixel-wide source the red channel is the
+  // average of red and green.
+  const mid = Math.floor(SIZE / 2) - 1;
   checkClose(
     '2×2 中间位置的双线性插值与手算一致',
-    at(0, 128, 10),
-    (1 - blend) * 2 - 1,
-    1e-6,
+    at(0, mid, EDGE),
+    (shade(255) + shade(0)) / 2,
+    0.02,
   );
 
   const gray = ai.buildInputTensor(rgba(1, 1, () => [77, 77, 77, 255]), 1, 1);
@@ -371,9 +379,9 @@ console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）-
   );
 
   const black = ai.buildInputTensor(rgba(1, 1, () => [0, 0, 0, 255]), 1, 1);
-  checkTrue('纯黑映射为 -1', black.data.every((value) => value === -1), 'not all -1');
+  checkTrue('纯黑映射为 -0.5', black.data.every((value) => value === -0.5), 'not all -0.5');
   const white = ai.buildInputTensor(rgba(1, 1, () => [255, 255, 255, 255]), 1, 1);
-  checkTrue('纯白映射为 1', white.data.every((value) => value === 1), 'not all 1');
+  checkTrue('纯白映射为 0.5', white.data.every((value) => value === 0.5), 'not all 0.5');
 
   const withAlpha = (alpha) => rgba(2, 1, (x) => [x === 0 ? 200 : 40, 100, 50, alpha]);
   const opaque = ai.buildInputTensor(withAlpha(255), 2, 1);
@@ -408,7 +416,7 @@ console.log('\n--- AI 抠图：输入张量（手算像素值与 NCHW 排布）-
 
 console.log('\n--- AI 抠图：alpha 缩放（双线性、clamp、恒等）---');
 {
-  const SIZE = 256;
+  const SIZE = ai.modelInputSize(1024, 1024);
   const COUNT = SIZE * SIZE;
   const half = new Float32Array(COUNT).fill(0.5);
   const resized = ai.resizeAlpha(half, 37, 41);
@@ -1586,11 +1594,11 @@ console.log('\n--- 体积守卫：onnxruntime 只能由 aiMatting 动态加载 -
   // Model input resolution adapts to the working image: never below 256 (the
   // exporter's own default) and never above 768, where the extra detail stopped
   // being worth the inference cost.
-  check('小图不被放大到 768 以上', ai.modelInputSize(300, 200), 300);
-  check('超小图仍取下限 256', ai.modelInputSize(120, 90), 256);
-  check('中等图按长边给尺寸', ai.modelInputSize(640, 594), 640);
-  check('大图被截到上限 768', ai.modelInputSize(1600, 1486), 768);
-  check('长边是高度时同样成立', ai.modelInputSize(500, 900), 768);
+  check('小图不被放大到上限以上', ai.modelInputSize(300, 200), 512);
+  check('超小图取下限 512', ai.modelInputSize(120, 90), 512);
+  check('中等图按长边给尺寸', ai.modelInputSize(700, 594), 700);
+  check('大图被截到上限 1024', ai.modelInputSize(1600, 1486), 1024);
+  check('长边是高度时同样成立', ai.modelInputSize(500, 900), 900);
 
   // The tensor must follow whatever size the helper chose.
   const px = new Uint8ClampedArray(640 * 594 * 4).fill(200);

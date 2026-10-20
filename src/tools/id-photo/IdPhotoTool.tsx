@@ -1292,7 +1292,7 @@ export function IdPhotoTool() {
                         <Caption1 className={styles.mono}>
                           {usingAi ? (
                             <>
-                              MODNet 本地模型 · 前景{' '}
+                              RMBG-1.4 本地模型 · 前景{' '}
                               {Math.round(matte.stats.foregroundRatio * 100)}% ·
                               可用画笔继续修整
                             </>
@@ -1354,14 +1354,15 @@ export function IdPhotoTool() {
                     <div className={styles.aiBlock}>
                       <Checkbox
                         checked={aiEnabled}
-                        label="AI 抠图（本地模型，首次约 12 MB）"
+                        label="AI 抠图（本地模型，首次约 42 MB）"
                         aria-label="AI 抠图（本地模型）"
                         onChange={(_event, data) =>
                           setAiEnabled(data.checked === true)
                         }
                       />
                       <Caption1 className={styles.hint}>
-                        使用 MODNet 模型在浏览器内完成推理。模型下载后由浏览器缓存；
+                        使用 RMBG-1.4 模型在浏览器内完成推理，模型许可为 <strong>CC BY-NC 4.0（仅限非商业用途）</strong>。
+                        模型下载后由浏览器缓存；
                         推理全部在本机完成，图片不会离开这台设备。
                         复杂背景与发丝边缘的效果明显好于本地算法。
                       </Caption1>
@@ -1372,7 +1373,7 @@ export function IdPhotoTool() {
                             <ProgressBar />
                             <Caption1 className={styles.hint}>
                               {aiStatus === 'loading'
-                                ? '正在准备 AI 模型（约 12 MB，首次较慢，下载后由浏览器缓存）…'
+                                ? '正在准备 AI 模型（约 42 MB，首次较慢，下载后由浏览器缓存）…'
                                 : 'AI 正在本机推理…'}
                             </Caption1>
                           </div>

@@ -1,5 +1,5 @@
 /**
- * Optional local AI matting with MODNet, running in the browser.
+ * Optional local AI matting with RMBG-1.4, running in the browser.
  *
  * Loading is lazy on purpose: onnxruntime-web is imported inside loadRuntime,
  * so neither the site entry nor the tool's own chunk carries the runtime. The
@@ -12,7 +12,7 @@
  *
  * Preprocessing follows the model's preprocessor_config.json and was verified
  * with Python onnxruntime: bilinear resize to 256x256, RGB/255, then
- * (value - 0.5) / 0.5 to reach [-1, 1], NCHW float32. The single output is a
+ * (value / 255 - 0.5) with mean 0.5 and std 1.0, NCHW float32. The single output is a
  * [1, 1, 256, 256] alpha already passed through sigmoid, so its values are in
  * [0, 1]. It is bilinearly resized back to the working image and quantised.
  *
@@ -51,8 +51,8 @@ import { tightenAlpha, type MattingResult, type RgbaImage } from './mattingUtils
  * so 768 is the ceiling here. Small images are not upscaled past their own long
  * edge, since that would cost time without adding detail.
  */
-export const MODEL_INPUT_SIZE_MAX = 768;
-export const MODEL_INPUT_SIZE_MIN = 256;
+export const MODEL_INPUT_SIZE_MAX = 1024;
+export const MODEL_INPUT_SIZE_MIN = 512;
 
 /** Resolution actually fed to the model for a working image of this size. */
 export function modelInputSize(width: number, height: number): number {
@@ -64,7 +64,7 @@ export function modelInputSize(width: number, height: number): number {
 }
 
 /** Public model location, relative to the site base. */
-export const MODEL_FILE = 'models/modnet.fp16.onnx';
+export const MODEL_FILE = 'models/rmbg14.q8.onnx';
 
 
 /**
@@ -245,7 +245,7 @@ export function buildInputTensor(
         const lower = bottom + (bottomPeer - bottom) * fx;
         const value = upper + (lower - upper) * blendY;
         // The order is channel-major, then row, then column (NCHW).
-        data[channel * plane + y * size + x] = (value / 255) * 2 - 1;
+        data[channel * plane + y * size + x] = value / 255 - 0.5;
       }
     }
   }
@@ -520,7 +520,7 @@ function buildResult(
 }
 
 /**
- * Runs MODNet on an RGBA image and returns an alpha mask in image coordinates.
+ * Runs RMBG-1.4 on an RGBA image and returns an alpha mask in image coordinates.
  *
  * The returned shape is intentionally the same MattingResult the classic
  * pipeline produces, so the preview, the brush strokes, the size presets and the
