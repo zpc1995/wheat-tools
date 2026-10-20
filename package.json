@@ -1,7 +1,7 @@
 {
   "name": "wheat-tools",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.5.0",
   "type": "module",
   "description": "A Swiss-army knife of small, independent web tools.",
   "packageManager": "pnpm@11.22.0",
