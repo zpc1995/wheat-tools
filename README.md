@@ -1,6 +1,6 @@
 # wheat tools · 麦工具
 
-由 **DeepSeek Harness** 生成的自用小工具集，共 89 个工具。
+由 **DeepSeek Harness** 生成的自用小工具集，共 90 个工具。
 除「外网 IP 查询」需要请求第三方接口外，其余全部在浏览器本地运行，不上传任何数据。
 
 **演示地址**：https://zpc1995.github.io/wheat-tools/
@@ -86,7 +86,7 @@
 - **RSA 密钥对生成器** · `rsa-key-pair` — 用浏览器 Web Crypto 生成 RSA 密钥对：用途可选 RSASSA-PKCS1-v1_5 /…
 - **Token 生成器** · `token-generator` — 用 crypto.getRandomValues 生成随机 token（hex / Base64 /…
 
-### 网络工具（17）
+### 网络工具（18）
 
 - **随机端口生成器** · `random-port` — 按范围批量生成随机端口号：默认 IANA 动态端口 49152–65535，也可选注册端口…
 - **外网 IP 查询** · `ip-lookup` — 同时查询 IPv4 与 IPv6 公网地址并各自显示归属地、运营商、ASN 与地区，另可查询任意指定 IP
@@ -105,6 +105,7 @@
 - **URL 参数编辑器** · `url-params` — 按行编辑查询参数：保留重复键与顺序、区分无值参数与空值，可原样输出原始转义字节（带签名 URL 必需）
 - **URL 分析器** · `url-parser` — 把一条 URL 逐字段拆开：协议、认证信息（默认打码）、主机、端口、路径、查询、片段，各自按正确的规则解码…
 - **User Agent 分析器** · `user-agent-parser` — 解析 UA 字符串，提取浏览器与版本、渲染引擎、操作系统与版本…
+- **WebRTC 推拉流测试** · `webrtc-tester` — 推流走 WHIP、拉流走 WHEP，两个地址彼此独立；显示 ICE 状态时间线、每秒码率/帧率/丢包/RTT 与一键诊断报告
 
 ### 图片与媒体（7）
 
