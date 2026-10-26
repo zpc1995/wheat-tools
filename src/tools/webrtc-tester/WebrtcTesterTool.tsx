@@ -18,6 +18,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildDiagnosticReport,
+  buildEndpoint,
+  buildRtmpHint,
   capturePlan,
   describeRtcSupport,
   explainAnswerError,
@@ -31,21 +33,26 @@ import {
   formatPacketLoss,
   formatResolution,
   hasCodecPreference,
+  isWebrtcUrlInput,
   isWhipWhepPath,
   normalizeEndpoint,
   orderCodecsForPreference,
   parseIceServers,
   parseSdp,
   parseWhipResponse,
+  parseWebrtcUrl,
   pullStats,
   type CaptureSource,
   type CodecPreference,
   type DiagnosticSession,
   type DiagnosticTimelineEntry,
+  type RtmpHint,
   type RtpSnapshot,
   type StatsDelta,
   type StatsSnapshot,
   type UiExplanation,
+  type WebrtcAddress,
+  type WebrtcEndpointKind,
 } from './webrtcUtils';
 
 type SessionDirection = 'push' | 'pull';
@@ -100,6 +107,25 @@ interface ActiveSession {
   timeline: DiagnosticTimelineEntry[];
 }
 
+/**
+ * What the pull address field currently means.
+ *
+ * The field accepts two shapes and decides by prefix. Both paths end in the same
+ * `url`, which is the only value the WHEP flow posts to — so adding webrtc://
+ * support does not grow a second connection implementation.
+ */
+interface PullDerivation {
+  mode: 'http' | 'webrtc';
+  /** HTTP WHEP endpoint to POST to, or null while the input is not usable. */
+  url: string | null;
+  /** Reason the input is unusable, or null. */
+  error: string | null;
+  /** Assumptions made while deriving; shown verbatim so none stays silent. */
+  notes: string[];
+  address: WebrtcAddress | null;
+  rtmp: RtmpHint | null;
+}
+
 const STATS_INTERVAL_MS = 1000;
 /** Long enough for ordinary STUN, short enough not to look frozen. */
 const ICE_GATHER_TIMEOUT_MS = 3000;
@@ -139,6 +165,14 @@ const CODEC_OPTIONS: { value: CodecPreference; label: string }[] = [
 
 const EXAMPLE_PUSH = 'https://your-server:8080/whip';
 const EXAMPLE_PULL = 'https://your-server:8080/whep';
+const EXAMPLE_PULL_WEBRTC = 'webrtc://your-server/live/streamA';
+const DEFAULT_CUSTOM_TEMPLATE = '{scheme}://{host}:{port}/{app}/{stream}/whep';
+
+const PULL_KIND_OPTIONS: { value: WebrtcEndpointKind; label: string }[] = [
+  { value: 'srs', label: 'SRS 6+' },
+  { value: 'mediamtx', label: 'mediamtx' },
+  { value: 'custom', label: '自定义模板' },
+];
 
 const MONO_FONT = 'Consolas, "Cascadia Mono", "SF Mono", Menlo, monospace';
 
@@ -267,6 +301,36 @@ const useStyles = makeStyles({
     margin: 0,
     paddingLeft: '20px',
     color: tokens.colorNeutralForeground3,
+  },
+  endpointBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    width: '100%',
+    minWidth: 0,
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: `1px solid ${tokens.colorBrandStroke1}`,
+    backgroundColor: tokens.colorBrandBackground2,
+  },
+  endpointUrl: {
+    fontFamily: MONO_FONT,
+    fontSize: '16px',
+    fontWeight: 600,
+    lineHeight: '22px',
+    wordBreak: 'break-all',
+    color: tokens.colorNeutralForeground1,
+  },
+  hintBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    width: '100%',
+    minWidth: 0,
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: `1px dashed ${tokens.colorNeutralStroke1}`,
+    backgroundColor: tokens.colorNeutralBackground3,
   },
   report: {
     width: '100%',
@@ -640,6 +704,9 @@ export function WebrtcTesterTool() {
   const [pushToken, setPushToken] = useState('');
   const [pullUrl, setPullUrl] = useState('');
   const [pullToken, setPullToken] = useState('');
+  const [pullKind, setPullKind] = useState<WebrtcEndpointKind>('srs');
+  const [pullHttpPort, setPullHttpPort] = useState('');
+  const [pullTemplate, setPullTemplate] = useState(DEFAULT_CUSTOM_TEMPLATE);
   const [source, setSource] = useState<CaptureSource>('camera-mic');
   const [codecPreference, setCodecPreference] = useState<CodecPreference>('auto');
   const [iceText, setIceText] = useState('');
@@ -666,6 +733,51 @@ export function WebrtcTesterTool() {
     [iceText, iceUsername, iceCredential],
   );
 
+  // One derivation feeds both the visible preview and startPull, so the endpoint
+  // the user reads is always the endpoint that is actually posted to.
+  const pullDerivation = useMemo<PullDerivation>(() => {
+    const raw = pullUrl.trim();
+    if (!isWebrtcUrlInput(raw)) {
+      const normalized = normalizeEndpoint(raw);
+      return {
+        mode: 'http',
+        url: normalized.ok ? normalized.url : null,
+        error: normalized.ok ? null : normalized.error,
+        notes: [],
+        address: null,
+        rtmp: null,
+      };
+    }
+
+    const address = parseWebrtcUrl(raw);
+    if (!address.ok) {
+      return {
+        mode: 'webrtc',
+        url: null,
+        error: address.error,
+        notes: [],
+        address: null,
+        rtmp: null,
+      };
+    }
+
+    // An empty box means "use the address port, then the scheme default".
+    const httpPort = pullHttpPort.trim() === '' ? null : Number(pullHttpPort);
+    const endpoint = buildEndpoint(address, {
+      kind: pullKind,
+      httpPort,
+      customTemplate: pullTemplate,
+    });
+    return {
+      mode: 'webrtc',
+      url: endpoint.ok ? endpoint.url : null,
+      error: endpoint.ok ? null : endpoint.error,
+      notes: endpoint.ok ? endpoint.notes : [],
+      address,
+      rtmp: buildRtmpHint(address),
+    };
+  }, [pullHttpPort, pullKind, pullTemplate, pullUrl]);
+
   const pushActive =
     pushPanel.phase === 'starting' || pushPanel.phase === 'live' || pushPanel.phase === 'stopping';
   const pullActive =
@@ -686,6 +798,9 @@ export function WebrtcTesterTool() {
   }, [pushUrl]);
 
   const pullPathHint = useMemo(() => {
+    // Derivation mode has its own diagnostics; the /whep suffix heuristic only
+    // applies to a complete HTTP endpoint.
+    if (isWebrtcUrlInput(pullUrl)) return null;
     const normalized = normalizeEndpoint(pullUrl);
     if (!normalized.ok) return null;
     const kind = isWhipWhepPath(normalized.url);
@@ -1129,22 +1244,26 @@ export function WebrtcTesterTool() {
       return;
     }
 
-    const normalized = normalizeEndpoint(pullUrl);
-    if (!normalized.ok) {
+    if (pullDerivation.url === null) {
       setPullPanel({
         ...EMPTY_PANEL,
         phase: 'error',
         endpoint: pullUrl,
         token: pullToken,
-        error: { kind: 'endpoint', title: '拉流地址无效', detail: normalized.error },
+        error: {
+          kind: 'endpoint',
+          title: pullDerivation.mode === 'webrtc' ? 'webrtc:// 地址无法使用' : '拉流地址无效',
+          detail: pullDerivation.error ?? '地址无法解析。',
+        },
       });
       return;
     }
+    const endpointUrl = pullDerivation.url;
     if (iceParsed.invalid.length > 0) {
       setPullPanel({
         ...EMPTY_PANEL,
         phase: 'error',
-        endpoint: normalized.url,
+        endpoint: endpointUrl,
         token: pullToken,
         error: {
           kind: 'ice',
@@ -1176,7 +1295,7 @@ export function WebrtcTesterTool() {
     setPullPanel({
       ...EMPTY_PANEL,
       phase: 'starting',
-      endpoint: normalized.url,
+      endpoint: endpointUrl,
       token,
     });
 
@@ -1264,7 +1383,7 @@ export function WebrtcTesterTool() {
 
     let response: Response;
     try {
-      response = await fetch(normalized.url, {
+      response = await fetch(endpointUrl, {
         method: 'POST',
         headers,
         body: offerSdp,
@@ -1293,7 +1412,7 @@ export function WebrtcTesterTool() {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
       body: bodyText,
-      requestUrl: normalized.url,
+      requestUrl: endpointUrl,
     });
     note(result.warning);
 
@@ -1382,7 +1501,7 @@ export function WebrtcTesterTool() {
     };
     void takeSample();
     session.timer = window.setInterval(() => void takeSample(), STATS_INTERVAL_MS);
-  }, [codecPreference, iceParsed, iceServers, pullToken, pullUrl, support]);
+  }, [codecPreference, iceParsed, iceServers, pullDerivation, pullToken, pullUrl, support]);
 
   const stopPull = useCallback(() => {
     const session = pullRef.current;
@@ -1738,13 +1857,15 @@ export function WebrtcTesterTool() {
 
           <div className={styles.row}>
             <label className={styles.fieldWide}>
-              <Caption1 className={styles.fieldLabel}>拉流地址</Caption1>
+              <Caption1 className={styles.fieldLabel}>
+                拉流地址（HTTP WHEP 端点，或 webrtc:// 地址）
+              </Caption1>
               <input
                 className="wt-inline-input"
                 value={pullUrl}
                 onChange={(event) => setPullUrl(event.target.value)}
                 aria-label="拉流地址"
-                placeholder={EXAMPLE_PULL}
+                placeholder={`${EXAMPLE_PULL} 或 ${EXAMPLE_PULL_WEBRTC}`}
                 spellCheck={false}
                 autoComplete="off"
                 disabled={pullActive}
@@ -1780,7 +1901,161 @@ export function WebrtcTesterTool() {
             </Button>
           </div>
 
-          {!pullActive && pullPathHint !== null && (
+          <Caption1 className={styles.metaLine}>
+            以 webrtc:// 或 webrtcs:// 开头时，会先按所选服务端推导成真实的 HTTP WHEP 端点，再走同一套
+            WHEP 流程；其它输入按完整的 HTTP 端点原样使用。
+          </Caption1>
+
+          {pullDerivation.mode === 'webrtc' && (
+            <>
+              <div className={styles.row}>
+                <label className={styles.field}>
+                  <Caption1 className={styles.fieldLabel}>服务端</Caption1>
+                  <select
+                    className="wt-inline-input"
+                    value={pullKind}
+                    onChange={(event) => setPullKind(event.target.value as WebrtcEndpointKind)}
+                    aria-label="webrtc 服务端类型"
+                    disabled={pullActive}
+                  >
+                    {PULL_KIND_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.field}>
+                  <Caption1 className={styles.fieldLabel}>HTTP 端口（可选）</Caption1>
+                  <input
+                    className="wt-inline-input"
+                    value={pullHttpPort}
+                    onChange={(event) => setPullHttpPort(event.target.value)}
+                    aria-label="HTTP 端口"
+                    placeholder="如 8080；留空按 80/443"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={pullActive}
+                  />
+                </label>
+
+                {pullKind === 'custom' ? (
+                  <label className={styles.fieldWide}>
+                    <Caption1 className={styles.fieldLabel}>自定义模板</Caption1>
+                    <input
+                      className="wt-inline-input"
+                      value={pullTemplate}
+                      onChange={(event) => setPullTemplate(event.target.value)}
+                      aria-label="自定义 WHEP 模板"
+                      placeholder={DEFAULT_CUSTOM_TEMPLATE}
+                      autoComplete="off"
+                      spellCheck={false}
+                      disabled={pullActive}
+                    />
+                  </label>
+                ) : (
+                  <label className={styles.fieldWide}>
+                    <Caption1 className={styles.fieldLabel}>推导出的端点（只读预览）</Caption1>
+                    <input
+                      className="wt-inline-input"
+                      value={pullDerivation.url ?? ''}
+                      aria-label="推导出的端点预览"
+                      readOnly
+                      spellCheck={false}
+                    />
+                  </label>
+                )}
+              </div>
+
+              <Caption1 className={styles.metaLine}>
+                <Text font="monospace">SRS</Text> 用 /rtc/v1/whep/?app=…&amp;stream=…，
+                <Text font="monospace">mediamtx</Text> 用 /app/stream/whep。自定义模板支持占位符{' '}
+                {'{scheme} {host} {port} {app} {stream}'}；ZLMediaKit 各版本 WHEP 路径不同，请选「自定义模板」按其版本文档填写。
+              </Caption1>
+
+              {pullDerivation.error !== null && (
+                <MessageBar intent="error">
+                  <MessageBarBody>
+                    <MessageBarTitle>无法从 webrtc:// 地址推导端点。</MessageBarTitle>
+                    {pullDerivation.error}
+                  </MessageBarBody>
+                </MessageBar>
+              )}
+
+              {pullDerivation.url !== null && (
+                <div className={styles.endpointBox}>
+                  <Caption1 className={styles.fieldLabel}>实际会 POST 的真实 WHEP 端点</Caption1>
+                  <div className={styles.endpointUrl} role="status">
+                    {pullDerivation.url}
+                  </div>
+                  <div className={styles.controls}>
+                    <Button
+                      size="small"
+                      icon={<CopyRegular />}
+                      onClick={() => void copyText('pull-endpoint', pullDerivation.url ?? '')}
+                    >
+                      {copied === 'pull-endpoint' ? '已复制端点' : '复制端点'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {pullDerivation.notes.length > 0 && (
+                <div className={styles.notes}>
+                  <Caption1 className={styles.fieldLabel}>推导假设（请核对）</Caption1>
+                  <ul className={styles.noteList}>
+                    {pullDerivation.notes.map((note, index) => (
+                      <li key={`${index}-${note}`}>
+                        <Caption1>{note}</Caption1>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {pullDerivation.rtmp !== null && (
+                <div className={styles.hintBox}>
+                  <Text size={200} weight="semibold">
+                    推流侧提示（仅供对照）
+                  </Text>
+                  <Caption1>本工具不推 RTMP，请用 OBS/ffmpeg 推流；此处只验证拉流。</Caption1>
+                  <Caption1 className={styles.mono}>
+                    RTMP 地址：{pullDerivation.rtmp.rtmpUrl}
+                  </Caption1>
+                  <div className={styles.controls}>
+                    <Button
+                      size="small"
+                      icon={<CopyRegular />}
+                      onClick={() => void copyText('pull-rtmp', pullDerivation.rtmp?.rtmpUrl ?? '')}
+                    >
+                      {copied === 'pull-rtmp' ? '已复制' : '复制 RTMP 地址'}
+                    </Button>
+                  </div>
+                  <Caption1 className={styles.mono}>
+                    ffmpeg：{pullDerivation.rtmp.ffmpegCommand}
+                  </Caption1>
+                  <div className={styles.controls}>
+                    <Button
+                      size="small"
+                      icon={<CopyRegular />}
+                      onClick={() =>
+                        void copyText('pull-ffmpeg', pullDerivation.rtmp?.ffmpegCommand ?? '')
+                      }
+                    >
+                      {copied === 'pull-ffmpeg' ? '已复制' : '复制 ffmpeg 命令'}
+                    </Button>
+                  </div>
+                  <Caption1 className={styles.metaLine}>
+                    命令里的 input.mp4 需替换成本机文件。RTMP 默认端口 1935；地址里的端口用于信令/HTTP，不一定是 RTMP 端口。
+                  </Caption1>
+                </div>
+              )}
+            </>
+          )}
+
+          {!pullActive && pullDerivation.mode === 'http' && pullPathHint !== null && (
             <Caption1 className={styles.metaLine}>{pullPathHint}</Caption1>
           )}
 
@@ -1845,6 +2120,14 @@ export function WebrtcTesterTool() {
               <Caption1>
                 统计来自 getStats：推流显示码率、发送帧率、分辨率、RTT 与可用发送带宽；拉流显示码率、接收帧率、
                 分辨率、丢包率、抖动与 RTT。数值只反映本地浏览器看到的 RTP，不能证明服务端已正确录制或转发。
+              </Caption1>
+            </li>
+            <li>
+              <Caption1>
+                webrtc:// 与 webrtcs:// 不是浏览器协议，只是服务端控制台里的写法：本工具会先把它推导成该服务端的
+                HTTP WHEP 端点。SRS 与 mediamtx 的路径模板已核实，ZLMediaKit 因版本差异请用自定义模板；
+                推导结果与假设都显示在拉流面板上，开始拉流时用的就是那个端点。RTMP 地址只是推流提示，
+                本工具不推 RTMP。
               </Caption1>
             </li>
             <li>

@@ -103,6 +103,507 @@ export function isWhipWhepPath(url: string): WhipWhepPathKind {
 }
 
 // ---------------------------------------------------------------------------
+// webrtc:// addresses: parsing and WHEP endpoint derivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Why a `webrtc://` address needs translating before it can be used here.
+ *
+ * Browsers cannot open a `webrtc://` URL. That spelling is a console
+ * convention: every media server exposes WebRTC playback as an ordinary HTTP
+ * WHEP endpoint, and the path template differs per server. A user who copies
+ * `webrtc://host/live/streamA` from a server console therefore needs it turned
+ * into the HTTP endpoint that server actually serves.
+ *
+ * The two built-in templates map that address as follows:
+ *
+ *   - SRS (6 and later): `http(s)://host/rtc/v1/whep/?app=live&stream=streamA`
+ *   - mediamtx:          `http(s)://host:8889/live/streamA/whep`
+ *
+ * ZLMediaKit is deliberately absent. Its WHEP path differs from both of these
+ * and has changed between versions, so guessing would produce a plausible but
+ * wrong endpoint; it goes through the custom template instead.
+ *
+ * Everything below is pure: no request is made and nothing is looked up over
+ * the network. Deriving an endpoint is a string transformation the user can
+ * check before connecting, which is exactly what makes it debuggable.
+ */
+
+/** A parsed `webrtc://` address. Only `ok: true` values reach the builder. */
+export interface WebrtcAddress {
+  ok: true;
+  /** Host without the port. An IPv6 literal keeps its brackets for use in a URL. */
+  host: string;
+  /** Explicit port from the address, or null when it had none. */
+  port: number | null;
+  /** First path segment, percent-decoded. */
+  app: string;
+  /** Second path segment, percent-decoded. */
+  stream: string;
+  /** True for `webrtcs://`, which means HTTPS. */
+  secure: boolean;
+  /** Raw query string including the leading `?`, or an empty string. */
+  search: string;
+}
+
+export type WebrtcAddressResult = WebrtcAddress | { ok: false; error: string };
+
+/**
+ * Detects the prefix that switches the pull panel into derivation mode.
+ *
+ * Detection is prefix-only on purpose: anything else is treated as a complete
+ * HTTP endpoint and goes through `normalizeEndpoint`, so an existing workflow
+ * cannot be changed by this feature.
+ */
+export function isWebrtcUrlInput(text: string): boolean {
+  return /^webrtcs?:\/\//i.test(text.trim());
+}
+
+const URL_SCHEME_RE = /^([A-Za-z][A-Za-z0-9+.-]*):/;
+const HOSTNAME_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\.?$/;
+const IPV6_HOST_RE = /^\[[0-9A-Fa-f:.]+\]$/;
+
+/**
+ * Parses `webrtc[s]://host[:port]/app/stream[?query]`.
+ *
+ * Decisions that are visible to the user, and why they were made:
+ *
+ *   - A trailing slash is accepted and ignored: `/live/streamA/` names the same
+ *     stream as `/live/streamA`. Rejecting it would fail on a trailing slash
+ *     copied from a console without any benefit.
+ *   - Deeper paths (`/live/sub/stream`) are rejected rather than guessed at.
+ *     SRS and mediamtx both key a stream by exactly an app and a name, so a
+ *     third segment has no place in either template. Dropping it silently would
+ *     derive an endpoint for a stream the user did not name; the error points
+ *     at the HTTP endpoint field instead, which is the right escape hatch.
+ *   - Path segments are percent-decoded here and re-encoded by `buildEndpoint`,
+ *     which keeps a name with spaces or Chinese intact through the round trip.
+ *   - A fragment is discarded: it never reaches an HTTP server.
+ *
+ * The port is validated rather than passed to `URL`, because a generic URL error
+ * would not tell the user which part of the address was wrong. `URL` is also not
+ * used for the whole parse: for a non-special scheme it happily accepts forms
+ * this syntax should reject, such as an empty authority before the first slash.
+ */
+export function parseWebrtcUrl(text: string): WebrtcAddressResult {
+  const trimmed = text.trim();
+  if (trimmed === '') {
+    return {
+      ok: false,
+      error: '请填写 webrtc:// 地址，例如 webrtc://example.com/live/streamA。',
+    };
+  }
+
+  const schemeMatch = URL_SCHEME_RE.exec(trimmed);
+  if (schemeMatch === null) {
+    return {
+      ok: false,
+      error:
+        '地址缺少协议。请写成 webrtc://host/app/stream（用 webrtcs:// 表示 HTTPS）；' +
+        '完整的 HTTP WHEP 端点请直接用 http(s):// 填写。',
+    };
+  }
+
+  const scheme = schemeMatch[1].toLowerCase();
+  if (scheme !== 'webrtc' && scheme !== 'webrtcs') {
+    return {
+      ok: false,
+      error: `不支持 ${scheme}: 协议。这个输入只解析 webrtc:// 或 webrtcs:// 地址；完整的 HTTP WHEP 端点请直接用 http(s):// 填写。`,
+    };
+  }
+
+  const afterScheme = trimmed.slice(schemeMatch[0].length);
+  if (!afterScheme.startsWith('//')) {
+    return {
+      ok: false,
+      error: `${scheme}: 后面必须紧跟 //，例如 ${scheme}://example.com/live/streamA。`,
+    };
+  }
+
+  let rest = afterScheme.slice(2);
+
+  const hashIndex = rest.indexOf('#');
+  if (hashIndex !== -1) rest = rest.slice(0, hashIndex);
+
+  let search = '';
+  const queryIndex = rest.indexOf('?');
+  if (queryIndex !== -1) {
+    search = rest.slice(queryIndex);
+    rest = rest.slice(0, queryIndex);
+  }
+
+  const slashIndex = rest.indexOf('/');
+  const authority = slashIndex === -1 ? rest : rest.slice(0, slashIndex);
+  const pathText = slashIndex === -1 ? '' : rest.slice(slashIndex);
+
+  if (authority === '') {
+    return {
+      ok: false,
+      error: '地址缺少主机名（host），例如 webrtc://example.com/live/streamA。',
+    };
+  }
+
+  if (authority.includes('@')) {
+    return {
+      ok: false,
+      error: '地址不能包含用户名或密码。webrtc:// 地址只接受 host[:port]/app/stream。',
+    };
+  }
+
+  let host = authority;
+  let portText: string | null = null;
+
+  if (authority.startsWith('[')) {
+    const close = authority.indexOf(']');
+    if (close === -1) {
+      return { ok: false, error: `主机名里的 IPv6 地址缺少右方括号：${authority}` };
+    }
+    host = authority.slice(0, close + 1);
+    const tail = authority.slice(close + 1);
+    if (tail !== '') {
+      if (!tail.startsWith(':')) {
+        return { ok: false, error: `主机名与端口之间只能有一个冒号：${authority}` };
+      }
+      portText = tail.slice(1);
+    }
+    if (!IPV6_HOST_RE.test(host)) {
+      return { ok: false, error: `主机名里的 IPv6 地址不合法：${host}` };
+    }
+  } else {
+    const colon = authority.indexOf(':');
+    if (colon !== -1) {
+      if (authority.indexOf(':', colon + 1) !== -1) {
+        return {
+          ok: false,
+          error: 'IPv6 地址必须用方括号包起来，例如 webrtc://[::1]/live/streamA。',
+        };
+      }
+      host = authority.slice(0, colon);
+      portText = authority.slice(colon + 1);
+    }
+    if (host === '' || !HOSTNAME_RE.test(host)) {
+      return {
+        ok: false,
+        error: `主机名不合法：${host === '' ? '（空）' : host}。只接受常规主机名、IPv4，或用方括号包起来的 IPv6。`,
+      };
+    }
+    host = host.toLowerCase();
+  }
+
+  let port: number | null = null;
+  if (portText !== null) {
+    if (!/^\d+$/.test(portText)) {
+      return {
+        ok: false,
+        error: `端口不合法：${portText === '' ? '（空）' : portText}。端口必须是 1-65535 之间的整数。`,
+      };
+    }
+    const value = Number.parseInt(portText, 10);
+    if (!Number.isFinite(value) || value < 1 || value > 65535) {
+      return {
+        ok: false,
+        error: `端口不合法：${portText}。端口必须是 1-65535 之间的整数。`,
+      };
+    }
+    port = value;
+  }
+
+  const segments: string[] = [];
+  for (const raw of pathText.split('/')) {
+    if (raw === '') continue;
+    try {
+      segments.push(decodeURIComponent(raw));
+    } catch {
+      return { ok: false, error: `路径里的百分号编码无法解码：${raw}` };
+    }
+  }
+
+  if (segments.length === 0) {
+    return {
+      ok: false,
+      error:
+        '地址缺少 app 与 stream 两段路径，例如 webrtc://example.com/live/streamA 里的 live 与 streamA。',
+    };
+  }
+  if (segments.length === 1) {
+    return {
+      ok: false,
+      error: `地址只有一段路径（app="${segments[0]}"），缺少 stream。需要 webrtc://host/app/stream 两段。`,
+    };
+  }
+  if (segments.length > 2) {
+    return {
+      ok: false,
+      error:
+        `地址有 ${segments.length} 段路径，而 webrtc://host/app/stream 只定义 app 与 stream 两段。` +
+        '多段路径无法安全套用 SRS/mediamtx 模板，请直接填写服务端真实的 HTTP WHEP 端点。',
+    };
+  }
+
+  const [app, stream] = segments;
+  if (app.trim() === '' || stream.trim() === '') {
+    return { ok: false, error: 'app 与 stream 都不能为空。' };
+  }
+
+  return {
+    ok: true,
+    host,
+    port,
+    app,
+    stream,
+    secure: scheme === 'webrtcs',
+    search,
+  };
+}
+
+export type WebrtcEndpointKind = 'srs' | 'mediamtx' | 'custom';
+
+export interface WebrtcEndpointOptions {
+  kind: WebrtcEndpointKind;
+  /** Explicit HTTP port; wins over the port in the address when supplied. */
+  httpPort?: number | null;
+  /** Required when `kind` is custom; supports the documented placeholders. */
+  customTemplate?: string;
+}
+
+export type WebrtcEndpointResult =
+  | { ok: true; url: string; notes: string[] }
+  | { ok: false; error: string };
+
+/** Appends a query string without producing `?&` on a template that ends in `?`. */
+function appendSearch(url: string, search: string): string {
+  if (search === '') return url;
+  if (url.endsWith('?') || url.endsWith('&')) return `${url}${search.slice(1)}`;
+  return url.includes('?') ? `${url}&${search.slice(1)}` : `${url}${search}`;
+}
+
+/**
+ * Fills the custom template's placeholders.
+ *
+ * `{port}` is replaced together with a preceding colon, so `host:{port}` turns
+ * into `host` rather than `host:` when the port is unknown. App and stream are
+ * encoded as single path/query components: a template is expected to place them
+ * where a segment belongs, and raw spaces or `&` would otherwise change the URL
+ * structure the user wrote.
+ */
+function fillCustomTemplate(
+  template: string,
+  values: { scheme: string; host: string; app: string; stream: string; port: number | null },
+): string {
+  const portText = values.port === null ? '' : String(values.port);
+  const encoded = {
+    app: encodeURIComponent(values.app),
+    stream: encodeURIComponent(values.stream),
+  };
+  const withoutEmptyPortColon = template.replace(
+    /:\{port\}/g,
+    portText === '' ? '' : `:${portText}`,
+  );
+  return withoutEmptyPortColon.replace(
+    /\{(scheme|host|port|app|stream)\}/g,
+    (match: string, key: string) => {
+      switch (key) {
+        case 'scheme':
+          return values.scheme;
+        case 'host':
+          return values.host;
+        case 'port':
+          return portText;
+        case 'app':
+          return encoded.app;
+        case 'stream':
+          return encoded.stream;
+        default:
+          return match;
+      }
+    },
+  );
+}
+
+/**
+ * Turns a parsed address into the HTTP endpoint a WHEP POST can target.
+ *
+ * Port rules, which are the part users get wrong most often:
+ *
+ *   - `httpPort` always wins when supplied, because many deployments serve
+ *     signalling and the WHEP endpoint on different ports.
+ *   - Otherwise the port written in the webrtc:// address is used.
+ *   - Otherwise the built-in templates fall back to 80 for http and 443 for
+ *     https, and a note says so together with the port the server usually uses.
+ *
+ * A custom template receives `{port}` empty when neither `httpPort` nor the
+ * address supplied one. Injecting 80/443 there would silently rewrite a template
+ * that deliberately relies on the scheme default, so the empty value is kept and
+ * explained in a note instead.
+ *
+ * The result is always re-parsed with `URL` (and normalised by it, which drops a
+ * redundant default port), so a template that produces something which is not an
+ * http(s) URL is reported instead of handed to `fetch`.
+ */
+export function buildEndpoint(
+  parsed: WebrtcAddress,
+  options: WebrtcEndpointOptions,
+): WebrtcEndpointResult {
+  const notes: string[] = [];
+  const scheme = parsed.secure ? 'https' : 'http';
+  const defaultPort = parsed.secure ? 443 : 80;
+
+  if (!parsed.secure) {
+    notes.push(
+      'webrtc:// 按 HTTP 推导（端点以 http:// 开头）；若该服务端只开放 HTTPS，请改用 webrtcs://。',
+    );
+  }
+
+  let explicitPort: number | null = null;
+  const rawPort = options.httpPort;
+  if (rawPort !== undefined && rawPort !== null) {
+    if (!Number.isInteger(rawPort) || rawPort < 1 || rawPort > 65535) {
+      return {
+        ok: false,
+        error: `HTTP 端口不合法：${String(rawPort)}。端口必须是 1-65535 之间的整数。`,
+      };
+    }
+    explicitPort = rawPort;
+  }
+
+  const customTemplate = (options.customTemplate ?? '').trim();
+  if (options.kind === 'custom' && customTemplate === '') {
+    return {
+      ok: false,
+      error: '选择了自定义模板，但模板是空的。请填写例如 http://{host}:{port}/{app}/{stream}/whep。',
+    };
+  }
+
+  let port: number | null;
+  if (options.kind === 'custom') {
+    port = explicitPort ?? parsed.port;
+    if (port === null) {
+      notes.push(
+        `模板里的 {port} 为空：端点不带端口，浏览器按 ${scheme} 默认端口 ${defaultPort} 访问；` +
+          `若服务端 HTTP 不在 ${defaultPort}，请填「HTTP 端口」，或在模板里把端口写死。`,
+      );
+    } else if (explicitPort !== null && parsed.port !== null && parsed.port !== explicitPort) {
+      notes.push(
+        `已用「HTTP 端口」${explicitPort} 覆盖地址里的 ${parsed.port}；地址原端口不用于 WHEP 端点。`,
+      );
+    } else if (explicitPort !== null) {
+      notes.push(`已使用填写的 HTTP 端口 ${explicitPort}。`);
+    } else {
+      notes.push(
+        `使用地址里的端口 ${port} 作为 HTTP 端口；若 WHEP 端口与信令端口不同，请填「HTTP 端口」覆盖。`,
+      );
+    }
+    if (!/\{host\}/.test(customTemplate)) {
+      notes.push('模板里没有 {host} 占位符，推导结果不会包含地址中的主机名。');
+    }
+  } else {
+    port = explicitPort ?? parsed.port ?? defaultPort;
+    const usualPort = options.kind === 'mediamtx' ? '8889' : '8080';
+    if (explicitPort !== null) {
+      if (parsed.port !== null && parsed.port !== explicitPort) {
+        notes.push(
+          `已用「HTTP 端口」${explicitPort} 覆盖地址里的 ${parsed.port}；地址原端口不用于 WHEP 端点。`,
+        );
+      } else {
+        notes.push(`已使用填写的 HTTP 端口 ${explicitPort}。`);
+      }
+    } else if (parsed.port !== null) {
+      notes.push(
+        `地址带了端口 ${parsed.port}，按它作为 HTTP 端口推导；` +
+          '很多部署的 WHEP 端口与信令端口不同，若不对请填「HTTP 端口」覆盖。',
+      );
+    } else {
+      notes.push(
+        `URL 未指定端口，按 HTTP 默认端口 ${defaultPort} 推导；` +
+          `若服务端 HTTP 在 ${usualPort}，请把「HTTP 端口」填成 ${usualPort}。`,
+      );
+    }
+    if (options.kind === 'srs') {
+      notes.push('按 SRS 6+ 的 /rtc/v1/whep/?app={app}&stream={stream} 模板推导。');
+    } else {
+      notes.push(
+        '按 mediamtx 的 /{app}/{stream}/whep 路径模板推导；mediamtx 的 WHEP 默认在 8889 端口，' +
+          '版本不同路径若有变化请改用自定义模板。',
+      );
+    }
+  }
+
+  let filled: string;
+  const hostPart = port === null ? parsed.host : `${parsed.host}:${port}`;
+  if (options.kind === 'srs') {
+    filled =
+      `${scheme}://${hostPart}/rtc/v1/whep/` +
+      `?app=${encodeURIComponent(parsed.app)}&stream=${encodeURIComponent(parsed.stream)}`;
+  } else if (options.kind === 'mediamtx') {
+    filled =
+      `${scheme}://${hostPart}/${encodeURIComponent(parsed.app)}/` +
+      `${encodeURIComponent(parsed.stream)}/whep`;
+  } else {
+    filled = fillCustomTemplate(customTemplate, {
+      scheme,
+      host: parsed.host,
+      app: parsed.app,
+      stream: parsed.stream,
+      port,
+    });
+  }
+
+  const withSearch = appendSearch(filled, parsed.search);
+  if (parsed.search !== '') {
+    notes.push(
+      `地址里的查询串 ${parsed.search} 已原样附加到端点；如果服务端不认这些参数，请从地址里去掉。`,
+    );
+  }
+
+  let url: URL;
+  try {
+    url = new URL(withSearch);
+  } catch {
+    return {
+      ok: false,
+      error: `推导结果不是合法的 URL：${withSearch}。请检查自定义模板里的占位符与协议。`,
+    };
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return {
+      ok: false,
+      error: `推导结果的协议是 ${url.protocol}，不是 http/https。请检查自定义模板是否以 http(s):// 或 {scheme}:// 开头。`,
+    };
+  }
+  if (url.hostname === '') {
+    return { ok: false, error: `推导结果缺少主机名：${withSearch}` };
+  }
+
+  return { ok: true, url: url.toString(), notes };
+}
+
+/** The RTMP push address and ffmpeg command shown next to a webrtc:// address. */
+export interface RtmpHint {
+  rtmpUrl: string;
+  ffmpegCommand: string;
+}
+
+/**
+ * Builds the RTMP hint for a parsed address.
+ *
+ * This is help text only: the tool never pushes RTMP and cannot, since a browser
+ * has no RTMP stack. The address deliberately carries no port even when the
+ * webrtc:// address did: RTMP defaults to 1935, and the port in the webrtc://
+ * address is the signalling/HTTP port, so reusing it would point at the wrong
+ * service. App and stream are percent-encoded so the command can be pasted
+ * into a shell unchanged, and `input.mp4` is a placeholder for a real file.
+ */
+export function buildRtmpHint(parsed: WebrtcAddress): RtmpHint {
+  const rtmpUrl =
+    `rtmp://${parsed.host}/${encodeURIComponent(parsed.app)}/` +
+    `${encodeURIComponent(parsed.stream)}`;
+  return {
+    rtmpUrl,
+    ffmpegCommand: `ffmpeg -re -stream_loop -1 -i input.mp4 -c copy -f flv ${rtmpUrl}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // SDP parsing
 // ---------------------------------------------------------------------------
 

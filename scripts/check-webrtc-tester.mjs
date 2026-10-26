@@ -1025,6 +1025,109 @@ console.log('\n--- 相对 Location（HTTP 允许，很多服务端这样返回�
   check('没有请求地址时仍给出警告而不是静默', typeof withoutBase.warning === 'string', true);
 }
 
+
+console.log('\n--- webrtc:// 地址解析（浏览器不能直接用这个协议，需翻译成 WHEP 端点）---');
+{
+  const base = M.parseWebrtcUrl('webrtc://live.example.com/live/streamA');
+  check('解析出 host/app/stream', [base.host, base.app, base.stream], ['live.example.com', 'live', 'streamA']);
+  check('未写端口时为 null', base.port, null);
+  check('webrtc:// 表示 HTTP', base.secure, false);
+  check('webrtcs:// 表示 HTTPS', M.parseWebrtcUrl('webrtcs://h/live/s').secure, true);
+  check('带端口能解析', M.parseWebrtcUrl('webrtc://h:8080/live/s').port, 8080);
+  check('末尾斜杠被接受', M.parseWebrtcUrl('webrtc://h/live/s/').stream, 's');
+  check('查询串被保留', M.parseWebrtcUrl('webrtc://h/live/s?token=abc').search, '?token=abc');
+  check('IPv6 主机保留方括号', M.parseWebrtcUrl('webrtc://[2001:db8::1]/live/s').host, '[2001:db8::1]');
+  check('百分号路径被解码', M.parseWebrtcUrl('webrtc://h/%E7%9B%B4%E6%92%AD/s').app, '直播');
+
+  // Errors must name the missing part, not a generic parse failure.
+  const bad = [
+    ['', '空串'],
+    ['live.example.com/live/s', '缺协议'],
+    ['http://h/whep', '非 webrtc 协议'],
+    ['webrtc:///live/s', '缺主机'],
+    ['webrtc://h/live', '只有一段路径'],
+    ['webrtc://h/live/s/extra', '三段路径'],
+    ['webrtc://u:p@h/live/s', '含用户名密码'],
+    ['webrtc://h:0/live/s', '端口 0'],
+    ['webrtc://h:70000/live/s', '端口越界'],
+  ];
+  const notRejected = bad.filter(([text]) => M.parseWebrtcUrl(text).ok).map(([, label]) => label);
+  check('全部非法地址都被拒绝', notRejected, []);
+
+  const messages = bad.map(([text]) => M.parseWebrtcUrl(text).error);
+  check('每个错误都有可读说明', messages.every((m) => typeof m === 'string' && m.length > 8), true);
+  check('缺协议时提示改用 http(s)://', /http/i.test(M.parseWebrtcUrl('live.example.com/live/s').error), true);
+  check('三段路径的错误提到只支持 app/stream', /app.*stream|stream.*app/i.test(
+    M.parseWebrtcUrl('webrtc://h/live/s/extra').error,
+  ), true);
+
+  check('isWebrtcUrlInput 识别前缀', [M.isWebrtcUrlInput('webrtc://h/live/s'), M.isWebrtcUrlInput('webrtcs://h/live/s'), M.isWebrtcUrlInput('http://h/whep')], [true, true, false]);
+}
+
+console.log('\n--- webrtc:// → WHEP 端点推导 ---');
+{
+  const p = M.parseWebrtcUrl('webrtc://live.example.com/live/streamA');
+
+  // SRS 6+ serves standard WHEP at /rtc/v1/whep/ with app and stream in the query.
+  check('SRS 端点', M.buildEndpoint(p, { kind: 'srs' }).url,
+    'http://live.example.com/rtc/v1/whep/?app=live&stream=streamA');
+  check('SRS 用 HTTP 端口覆盖', M.buildEndpoint(p, { kind: 'srs', httpPort: 8080 }).url,
+    'http://live.example.com:8080/rtc/v1/whep/?app=live&stream=streamA');
+
+  // mediamtx keys a stream by its path, so app and stream become path segments.
+  check('mediamtx 端点', M.buildEndpoint(p, { kind: 'mediamtx' }).url,
+    'http://live.example.com/live/streamA/whep');
+  check('mediamtx 用 8889', M.buildEndpoint(p, { kind: 'mediamtx', httpPort: 8889 }).url,
+    'http://live.example.com:8889/live/streamA/whep');
+
+  // https schemes fall back to 443, which URL then normalises away.
+  const secure = M.parseWebrtcUrl('webrtcs://h/live/s');
+  check('webrtcs 走 https', M.buildEndpoint(secure, { kind: 'srs' }).url,
+    'https://h/rtc/v1/whep/?app=live&stream=s');
+
+  // Custom templates cover servers whose path differs by version.
+  const custom = { kind: 'custom', customTemplate: 'http://{host}:{port}/{app}/{stream}/whep' };
+  check('自定义模板', M.buildEndpoint(p, custom).url, 'http://live.example.com/live/streamA/whep');
+  check('模板里的 {port} 为空时不留冒号', M.buildEndpoint(p, custom).url.includes(':80'), false);
+  check('{port} 有值时写入', M.buildEndpoint(p, { ...custom, httpPort: 9000 }).url,
+    'http://live.example.com:9000/live/streamA/whep');
+  check('模板可只放查询串', M.buildEndpoint(p, {
+    kind: 'custom', customTemplate: 'https://{host}/x?app={app}&stream={stream}',
+  }).url, 'https://live.example.com/x?app=live&stream=streamA');
+
+  // Assumptions must be stated, never silent.
+  check('未指定端口时 notes 非空', M.buildEndpoint(p, { kind: 'srs' }).notes.length > 0, true);
+  check('notes 里说明了默认端口', M.buildEndpoint(p, { kind: 'srs' }).notes.join(' ').includes('80'), true);
+  check('mediamtx 提示 8889', M.buildEndpoint(p, { kind: 'mediamtx' }).notes.join(' ').includes('8889'), true);
+  check('模板缺 {host} 会被点名', M.buildEndpoint(p, { kind: 'custom', customTemplate: 'http://x/{app}' })
+    .notes.join(' ').includes('{host}'), true);
+
+  // Failures.
+  check('自定义模板为空时报错', M.buildEndpoint(p, { kind: 'custom' }).ok, false);
+  check('端口越界时报错', M.buildEndpoint(p, { kind: 'srs', httpPort: 70000 }).ok, false);
+
+  // Encoding: a Chinese app or a stream with a space must still produce a URL.
+  const zh = M.parseWebrtcUrl('webrtc://h/直播/流 1');
+  const zhUrl = M.buildEndpoint(zh, { kind: 'mediamtx' }).url;
+  check('中文与空格被编码', zhUrl.includes('%E7%9B%B4%E6%92%AD'), true);
+  check('编码后的地址可被 URL 解析', (() => { try { new URL(zhUrl); return true; } catch { return false; } })(), true);
+
+  // A query on the address is carried over rather than dropped.
+  const withQuery = M.parseWebrtcUrl('webrtc://h/live/s?token=abc');
+  check('查询串附加到端点', M.buildEndpoint(withQuery, { kind: 'srs' }).url,
+    'http://h/rtc/v1/whep/?app=live&stream=s&token=abc');
+}
+
+console.log('\n--- RTMP 提示（工具本身不推 RTMP）---');
+{
+  const p = M.parseWebrtcUrl('webrtc://live.example.com/live/streamA');
+  const hint = M.buildRtmpHint(p);
+  check('给出 RTMP 地址', hint.rtmpUrl, 'rtmp://live.example.com/live/streamA');
+  check('ffmpeg 命令包含 app 与 stream', hint.ffmpegCommand.includes('/live/streamA'), true);
+  check('ffmpeg 命令用 flv 封装', hint.ffmpegCommand.includes('-f flv'), true);
+  check('ffmpeg 命令是循环推流（便于拉流验证）', hint.ffmpegCommand.includes('-stream_loop'), true);
+}
+
 console.log('\n' + (usingFixture ? 'SDP 样本：真实 Chromium offer' : 'SDP 样本：内置等价样本'));
 console.log(`${passed}/${passed + failed} passed${failed ? `, ${failed} FAILED` : ''}`);
 process.exit(failed === 0 ? 0 : 1);
